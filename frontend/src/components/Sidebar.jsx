@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Plus, MessageSquare, Settings, LogOut, User, PenSquare, Menu, X, Coins, ConeIcon, CoinsIcon } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import api from "../utils/axios";
-import { setUserData } from "../redux/user.slice";
+import { clearUserData } from "../redux/user.slice";
+import { logoutUser } from "../features/auth.api";
 import { createConversation, getConversations } from "../features/conversation.api";
 import { addConversation, setConversations, setSelectedConversation } from "../redux/conversation.slice";
 import { getMessages } from "../features/message.api";
@@ -17,14 +19,15 @@ export default function Sidebar() {
   const { userData } = useSelector(state => state.user);
   const { conversations, selectedConversation } = useSelector(state => state.conversation);
   const dispatch = useDispatch();
+  const navigate = useNavigate();
 const [showBilling, setShowBilling] =useState(false);
   const logout = async () => {
-    try {
-      await api.get("/api/auth/logout");
-      dispatch(setUserData(null));
-    } catch (error) {
-      console.log(error);
-    }
+    // logoutUser revokes the refresh token server-side and clears the in-memory
+    // access token. It never throws, so the user is always signed out locally
+    // even if the network call fails.
+    await logoutUser();
+    dispatch(clearUserData());
+    navigate("/login", { replace: true });
   };
 
   useEffect(() => {
@@ -37,7 +40,9 @@ const [showBilling, setShowBilling] =useState(false);
       }
     };
     fetchConversations();
-  }, [userData?._id]);
+    // userId, not _id: the API returns the user with a userId field, so the old
+    // dependency was always undefined and never re-ran when the user changed.
+  }, [userData?.userId]);
 
   const handleCreateConversation = () => {
     dispatch(setSelectedConversation(null));
