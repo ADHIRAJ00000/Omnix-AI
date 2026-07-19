@@ -1,5 +1,6 @@
 import proxy from "express-http-proxy";
 import { env } from "../config/env.js";
+import { AppError } from "../../shared/errors/AppError.js";
 
 /**
  * Builds the headers every proxied request carries downstream.
@@ -11,6 +12,28 @@ import { env } from "../config/env.js";
  *  - x-request-id lets a single user action be traced across every service it
  *    touches.
  */
+/**
+ * Turns a failure to reach a service into a clear 503.
+ *
+ * This matters on a free hosting tier, where idle services are put to sleep and
+ * the first request after a nap arrives while the service is still waking up.
+ * Reported as a generic 500 that looks like a bug; as a 503 the frontend can
+ * tell the user to wait a moment and retry, which is the truth.
+ */
+const proxyErrorHandler = (serviceName) => (err, res, next) => {
+  if (err.code === "ECONNREFUSED" || err.code === "ETIMEDOUT" || err.code === "ECONNRESET") {
+    return next(
+      new AppError(
+        503,
+        "SERVICE_UNAVAILABLE",
+        "That part of the service is starting up. Please try again in a few seconds."
+      )
+    );
+  }
+
+  return next(err);
+};
+
 const decorateHeaders = (proxyReqOpts, srcReq) => {
   proxyReqOpts.headers["x-internal-key"] = env.INTERNAL_API_KEY;
   proxyReqOpts.headers["x-request-id"] = srcReq.id;
@@ -31,10 +54,18 @@ const decorateHeaders = (proxyReqOpts, srcReq) => {
   return proxyReqOpts;
 };
 
-/** For routes behind `protect`: forwards the authenticated user. */
-export const proxyWithUser = (serviceUrl) =>
+/**
+ * For routes behind `protect`: forwards the authenticated user.
+ *
+ * `targetPath` rewrites the downstream path, which is needed when the public
+ * URL and the service's own route differ — /api/me is friendlier for the
+ * frontend than /api/auth/me, but the auth service only knows about /me.
+ */
+export const proxyWithUser = (serviceUrl, targetPath) =>
   proxy(serviceUrl, {
     proxyReqOptDecorator: decorateHeaders,
+    proxyErrorHandler: proxyErrorHandler(serviceUrl),
+    ...(targetPath ? { proxyReqPathResolver: () => targetPath } : {}),
   });
 
 /**
@@ -44,4 +75,5 @@ export const proxyWithUser = (serviceUrl) =>
 export const proxyPublic = (serviceUrl) =>
   proxy(serviceUrl, {
     proxyReqOptDecorator: decorateHeaders,
+    proxyErrorHandler: proxyErrorHandler(serviceUrl),
   });

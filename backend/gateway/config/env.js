@@ -26,6 +26,12 @@ export const env = loadEnv(
       .string()
       .min(16, "INTERNAL_API_KEY must be at least 16 characters"),
 
+    // Must be byte-identical to the auth service's value: that service signs
+    // access tokens, this one verifies them. A mismatch rejects every request.
+    JWT_ACCESS_SECRET: z
+      .string()
+      .min(32, "JWT_ACCESS_SECRET must be at least 32 characters"),
+
     RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
     RATE_LIMIT_MAX: z.coerce.number().int().positive().default(120),
 

@@ -9,7 +9,6 @@ import { proxyPublic, proxyWithUser } from "./utils/proxyWithHeaders.js";
 import { protect } from "./middlewares/auth.middleware.js";
 import { blockInternalRoutes } from "./middlewares/blockInternal.middleware.js";
 import { globalRateLimit } from "./middlewares/rateLimit.middleware.js";
-import { getCurrentUser } from "./controllers/user.controller.js";
 import { createLogger } from "../shared/logger/logger.js";
 import { requestId, requestLogger } from "../shared/http/requestId.js";
 import { errorHandler, notFoundHandler } from "../shared/http/errorHandler.js";
@@ -54,10 +53,16 @@ app.get("/health", (req, res) => {
   res.json({ service: "gateway", status: "ok" });
 });
 
-// Public: login has no session yet, so `protect` cannot apply here.
-app.use("/api/auth", proxyPublic(env.AUTH_SERVICE));
+/**
+ * Order matters: the profile routes need a valid access token, so they are
+ * mounted before the catch-all /api/auth proxy, which is public. Express takes
+ * the first match, so putting them after would leave them unauthenticated.
+ */
+app.use("/api/me", protect, proxyWithUser(env.AUTH_SERVICE, "/me"));
 
-app.use("/api/me", protect, getCurrentUser);
+// Public: register, login, google, refresh and logout all run before a user
+// has an access token, so `protect` cannot apply here.
+app.use("/api/auth", proxyPublic(env.AUTH_SERVICE));
 app.use("/api/chat", protect, proxyWithUser(env.CHAT_SERVICE));
 app.use("/api/agent", protect, proxyWithUser(env.AGENT_SERVICE));
 app.use("/api/billing", protect, proxyWithUser(env.BILLING_SERVICE));
