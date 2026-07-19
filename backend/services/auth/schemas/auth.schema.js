@@ -13,7 +13,9 @@ export const loginSchema = {
 export const updatePlanSchema = {
   body: z.object({
     userId: objectId,
-    plan: z.enum(["free", "pro", "business"]),
+    // Must stay in step with PLANS in the billing service — those are the only
+    // plan ids that can ever be sent here.
+    plan: z.enum(["free", "starter", "pro"]),
     credits: z.number().int().min(0).max(100_000),
   }),
 };
