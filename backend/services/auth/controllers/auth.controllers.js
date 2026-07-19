@@ -1,418 +1,150 @@
-import crypto from "crypto";
-
-import { getAuth }
-  from "firebase-admin/auth";
+import { getAuth } from "firebase-admin/auth";
 import User from "../models/user.model.js";
-import redis from "../../../shared/redis/redis.js";
-import { app } from "../config/firebase.js";
+import { getFirebaseApp } from "../config/firebase.js";
+import { AppError } from "../../../shared/errors/AppError.js";
+import { costForAgent } from "../config/credits.js";
+import {
+  cookieOptions,
+  createSession,
+  destroySession,
+  refreshSession,
+} from "../services/session.service.js";
 
+export const login = async (req, res) => {
+  const { token } = req.body;
 
-export const login = async (
-  req,
-  res
-) => {
-
+  let decoded;
   try {
-
-
-    const { token } = req.body;
-
-    const decoded =
-      await getAuth(app)
-        .verifyIdToken(token);
-
-    console.log(decoded);
-
-
-    let user =
-      await User.findOne({
-        firebaseUid:
-          decoded.uid,
-      });
-
-    if (!user) {
-
-      user =
-        await User.create({
-
-          firebaseUid:
-            decoded.uid,
-
-          email:
-            decoded.email,
-
-          name:
-            decoded.name,
-
-          avatar:
-            decoded.picture,
-
-          provider:
-            decoded.firebase
-              ?.sign_in_provider,
-        });
-    }
-
-    const sessionId =
-      crypto.randomUUID();
-
-    await redis.set(
-      `user-session:${user._id}`,
-      sessionId,
-      "EX",
-      60 * 60 * 24 * 7
-    );
-
-    await redis.set(
-
-      `session:${sessionId}`,
-
-      JSON.stringify({
-
-        userId:
-          user._id,
-
-        email:
-          user.email,
-        avatar:
-          user.avatar,
-        name: user.name,
-        plan: user.plan,
-        credits: user.credits,
-        totalCredits: user.totalCredits
-
-
-      }),
-
-      "EX",
-
-      60 * 60 * 24 * 7
-    );
-
-    res.cookie(
-
-      "session",
-
-      sessionId,
-
-      {
-        httpOnly: true,
-
-        secure: false,
-
-        sameSite: "lax",
-
-        maxAge:
-          1000 *
-          60 *
-          60 *
-          24 *
-          7,
-      }
-    );
-
-    return res.json({
-
-      success: true,
-
-      user,
-    });
-
+    decoded = await getAuth(getFirebaseApp()).verifyIdToken(token);
   } catch (error) {
+    // A missing-credentials AppError is our own configuration problem, not the
+    // user's bad token — let it through as a 500 rather than masking it as 401.
+    if (error instanceof AppError) throw error;
 
-    return res
-      .status(401)
-      .json({
-        message:
-          error.message,
-      });
-
+    // Any verification failure is the same answer to the client. Passing the
+    // library's message through would tell an attacker exactly why a forged
+    // token was rejected.
+    req.log.warn({ err: error }, "firebase token verification failed");
+    throw AppError.unauthorized("Sign in failed, please try again");
   }
 
+  let user = await User.findOne({ firebaseUid: decoded.uid });
+
+  if (!user) {
+    user = await User.create({
+      firebaseUid: decoded.uid,
+      email: decoded.email,
+      name: decoded.name,
+      avatar: decoded.picture,
+      provider: decoded.firebase?.sign_in_provider,
+    });
+    req.log.info({ userId: user._id }, "new user registered");
+  }
+
+  const sessionId = await createSession(user);
+  res.cookie("session", sessionId, cookieOptions());
+
+  req.log.info({ userId: user._id }, "user signed in");
+
+  return res.json({ success: true, user });
 };
 
+export const logout = async (req, res) => {
+  await destroySession(req.cookies?.session);
 
+  // Clearing options must match the ones used to set it, or the browser keeps
+  // the cookie and the user appears to stay signed in.
+  res.clearCookie("session", { ...cookieOptions(), maxAge: undefined });
 
-export const logout =
-  async (req, res) => {
-
-    try {
-
-      const sessionId =
-        req.cookies?.session;
-
-      if (sessionId) {
-
-        await redis.del(
-          `session:${sessionId}`
-        );
-
-      }
-
-      res.clearCookie(
-        "session",
-        {
-          httpOnly: true,
-          secure: false,
-          sameSite: "lax"
-        }
-      );
-
-      return res.status(200).json({
-
-        success: true,
-
-        message: "Logged out successfully"
-
-      });
-
-    } catch (error) {
-
-      return res.status(500).json({
-
-        success: false,
-
-        message: error.message
-
-      });
-
-    }
-
-  };
-
-
+  return res.status(200).json({ success: true, message: "Logged out successfully" });
+};
 
 export const updatePlan = async (req, res) => {
+  const { userId, plan, credits } = req.body;
 
-  try {
+  // $inc rather than read-modify-write: two payments landing at the same moment
+  // would otherwise both read the old balance and one top-up would be lost.
+  const user = await User.findByIdAndUpdate(
+    userId,
+    {
+      $inc: { credits, totalCredits: credits },
+      $set: {
+        plan,
+        planExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+    },
+    { new: true }
+  );
 
-    const {
-
-      userId,
-
-      plan,
-
-      credits
-
-    } = req.body;
-
-    const user = await User.findById(userId);
-
-    if (!user) {
-
-      return res.status(404).json({
-
-        success: false,
-
-        message: "User not found"
-
-      });
-
-    }
-
-
-
-    user.plan = plan;
-
-    user.credits += credits;
-
-    user.totalCredits += credits;
-
-    user.planExpiresAt = new Date(
-
-      Date.now() +
-
-      30 * 24 * 60 * 60 * 1000
-
-    );
-
-    await user.save();
-
-
-    const sessionId = await redis.get(
-      `user-session:${user._id}`
-    );
-
-    if (sessionId) {
-
-      await redis.set(
-
-        `session:${sessionId}`,
-
-        JSON.stringify({
-
-          userId: user._id,
-
-          email: user.email,
-
-          avatar: user.avatar,
-
-          name: user.name,
-
-          plan: user.plan,
-
-          credits: user.credits,
-
-          totalCredits: user.totalCredits
-
-        }),
-
-        "EX",
-
-        60 * 60 * 24 * 7
-
-      );
-
-    }
-
-    return res.json({
-
-      success: true
-
-    });
-
+  if (!user) {
+    throw AppError.notFound("User not found");
   }
 
-  catch (error) {
+  await refreshSession(user);
 
-    console.log(error);
+  req.log.info({ userId, plan, credits }, "plan updated");
 
-    return res.status(500).json({
-
-      success: false,
-
-      message: error.message
-
-    });
-
-  }
-
+  return res.json({ success: true });
 };
 
-
-
-
-
 export const deductCredits = async (req, res) => {
+  const { userId, agent } = req.body;
+  const requiredCredits = costForAgent(agent);
 
-    try {
+  /**
+   * One atomic operation: "decrement, but only if the balance is still high
+   * enough." Mongo evaluates the filter and the update together, so two agent
+   * runs starting at the same instant cannot both pass the check against the
+   * same balance and each get a run for one charge.
+   *
+   * A null result means the condition failed — either no such user, or not
+   * enough credits.
+   */
+  const user = await User.findOneAndUpdate(
+    { _id: userId, credits: { $gte: requiredCredits } },
+    { $inc: { credits: -requiredCredits } },
+    { new: true }
+  );
 
-        const {
+  if (!user) {
+    const exists = await User.exists({ _id: userId });
 
-            userId,
-
-            agent
-
-        } = req.body;
-
-        const COST = {
-
-             chat:1,
-
-  search:5,
-
-  coding:10,
-
-  pdf:10,
-
-  ppt:10,
-
-  image:10
-
-        };
-
-        const user = await User.findById(userId);
-
-        if(!user){
-
-            return res.status(404).json({
-
-                success:false,
-
-                message:"User not found"
-
-            });
-
-        }
-
-        const requiredCredits =
-        COST[agent] || 1;
-
-        if(user.credits < requiredCredits){
-
-            return res.status(400).json({
-
-                success:false,
-
-                message:"Not enough credits."
-
-            });
-
-        }
-
-        user.credits -= requiredCredits;
-
-        await user.save();
-
-        const sessionId =
-        await redis.get(
-            `user-session:${user._id}`
-        );
-
-        if(sessionId){
-
-            await redis.set(
-
-                `session:${sessionId}`,
-
-                JSON.stringify({
-
-                    userId:user._id,
-
-                    email:user.email,
-
-                    avatar:user.avatar,
-
-                    name:user.name,
-
-                    plan:user.plan,
-
-                    credits:user.credits,
-
-                    totalCredits:user.totalCredits
-
-                }),
-
-                "EX",
-
-                60*60*24*7
-
-            );
-
-        }
-
-        return res.json({
-
-            success:true,
-
-            credits:user.credits
-
-        });
-
+    if (!exists) {
+      throw AppError.notFound("User not found");
     }
 
-    catch(error){
+    throw AppError.paymentRequired(
+      "You do not have enough credits for this action",
+      { required: requiredCredits, agent }
+    );
+  }
 
-        console.log(error);
-          console.log(error)
-        return res.status(500).json({
+  await refreshSession(user);
 
-            success:false,
+  req.log.info({ userId, agent, charged: requiredCredits, remaining: user.credits }, "credits deducted");
 
-            message:error.message
+  return res.json({ success: true, credits: user.credits });
+};
 
-        });
+/**
+ * Gives credits back when an agent run fails after it was charged.
+ *
+ * Without this, a crashed or aborted run silently costs the user money. Capped
+ * at totalCredits so a refund cannot push a balance above what was ever granted.
+ */
+export const refundCredits = async (req, res) => {
+  const { userId, agent } = req.body;
+  const amount = costForAgent(agent);
 
-    }
+  const user = await User.findByIdAndUpdate(userId, { $inc: { credits: amount } }, { new: true });
 
+  if (!user) {
+    throw AppError.notFound("User not found");
+  }
+
+  await refreshSession(user);
+
+  req.log.info({ userId, agent, refunded: amount }, "credits refunded");
+
+  return res.json({ success: true, credits: user.credits });
 };

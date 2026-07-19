@@ -1,25 +1,40 @@
 import express from "express";
-import cors from "cors";
+import cookieParser from "cookie-parser";
+
+import { env } from "./config/env.js";
 import connectDB from "./config/db.js";
-import dotenv from "dotenv";
 import router from "./routes/auth.routes.js";
-dotenv.config();
+import redis from "../../shared/redis/redis.js";
+import { createLogger } from "../../shared/logger/logger.js";
+import { requestId, requestLogger } from "../../shared/http/requestId.js";
+import { errorHandler, notFoundHandler } from "../../shared/http/errorHandler.js";
+import { attachGracefulShutdown } from "../../shared/http/gracefulShutdown.js";
+
+const logger = createLogger("auth-service");
 const app = express();
-app.use(express.json());
-const port=process.env.PORT 
 
+app.use(express.json({ limit: "1mb" }));
+app.use(cookieParser());
+app.use(requestId);
+app.use(requestLogger(logger));
 
+app.get("/health", (req, res) => {
+  res.json({ service: "auth-service", status: "ok" });
+});
 
-app.get("/", (req, res) => {
-  res.status(200).json({
-    service: "auth",
-    status: "ok"
+app.use("/", router);
+
+app.use(notFoundHandler);
+app.use(errorHandler);
+
+const start = async () => {
+  await connectDB();
+
+  const server = app.listen(env.PORT, () => {
+    logger.info({ port: env.PORT, env: env.NODE_ENV }, "auth service running");
   });
-});
-app.use("/",router)
-app.listen(port, () => {
-    connectDB()
-  console.log(
-    `auth service running on ${port}`
-  );
-});
+
+  attachGracefulShutdown(server, logger, { onShutdown: () => redis.quit() });
+};
+
+start();
