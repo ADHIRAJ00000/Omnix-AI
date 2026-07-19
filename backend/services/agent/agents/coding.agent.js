@@ -8,13 +8,10 @@ await checkAgentLimit(
     state.userId,
     "coding"
   );
- await deductCredits(
-
-        state.userId,
-
-        "coding"
-
-    );
+ await deductCredits(state.userId, "coding", {
+      runId: state.requestId,
+      conversationId: state.conversationId,
+    });
 
 function cleanCode(code = "") {
   return code

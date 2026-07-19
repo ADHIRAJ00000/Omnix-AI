@@ -136,6 +136,9 @@ export const verifyPayment = async (req, res) => {
         userId: payment.userId,
         plan: payment.plan,
         credits: payment.credits,
+        // The ledger keys the purchase entry on this, so the same order cannot
+        // be recorded as two separate top-ups.
+        reference: razorpay_order_id,
       },
       {
         headers: { "x-internal-key": env.INTERNAL_API_KEY, "x-request-id": req.id },

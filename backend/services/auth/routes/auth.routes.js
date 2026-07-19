@@ -2,6 +2,7 @@ import express from "express";
 import {
   deductCredits,
   getMe,
+  getTransactions,
   googleLogin,
   login,
   logout,
@@ -22,6 +23,7 @@ import {
   deductCreditsSchema,
   googleSchema,
   loginSchema,
+  refundCreditsSchema,
   registerSchema,
   updateMeSchema,
   updatePlanSchema,
@@ -55,6 +57,7 @@ router.post("/logout", asyncHandler(logout));
 
 router.get("/me", requireUser, asyncHandler(getMe));
 router.patch("/me", requireUser, validate(updateMeSchema), asyncHandler(updateMe));
+router.get("/me/transactions", requireUser, asyncHandler(getTransactions));
 
 /* ----------------------------------------------- service-to-service only */
 
@@ -65,6 +68,6 @@ router.patch("/me", requireUser, validate(updateMeSchema), asyncHandler(updateMe
  */
 router.patch("/internal/update-plan", validate(updatePlanSchema), asyncHandler(updatePlan));
 router.patch("/internal/deduct-credits", validate(deductCreditsSchema), asyncHandler(deductCredits));
-router.patch("/internal/refund-credits", validate(deductCreditsSchema), asyncHandler(refundCredits));
+router.patch("/internal/refund-credits", validate(refundCreditsSchema), asyncHandler(refundCredits));
 
 export default router;

@@ -57,15 +57,26 @@ const decorateHeaders = (proxyReqOpts, srcReq) => {
 /**
  * For routes behind `protect`: forwards the authenticated user.
  *
- * `targetPath` rewrites the downstream path, which is needed when the public
- * URL and the service's own route differ — /api/me is friendlier for the
- * frontend than /api/auth/me, but the auth service only knows about /me.
+ * `targetPrefix` rewrites the downstream path, needed when the public URL and
+ * the service's own route differ — /api/me reads better for the frontend than
+ * /api/auth/me, but the auth service only knows about /me.
+ *
+ * The remainder of the path is appended rather than discarded, so /api/me and
+ * /api/me/transactions both reach the right route. Mounting with app.use
+ * strips the mount prefix, leaving req.url as "/" or "/transactions".
  */
-export const proxyWithUser = (serviceUrl, targetPath) =>
+export const proxyWithUser = (serviceUrl, targetPrefix) =>
   proxy(serviceUrl, {
     proxyReqOptDecorator: decorateHeaders,
     proxyErrorHandler: proxyErrorHandler(serviceUrl),
-    ...(targetPath ? { proxyReqPathResolver: () => targetPath } : {}),
+    ...(targetPrefix
+      ? {
+          proxyReqPathResolver: (req) => {
+            const rest = req.url === "/" ? "" : req.url;
+            return `${targetPrefix}${rest}`;
+          },
+        }
+      : {}),
   });
 
 /**

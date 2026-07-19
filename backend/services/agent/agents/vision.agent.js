@@ -17,10 +17,10 @@ export const visionAgent = async (state) => {
       "image"
     );
 
-    await deductCredits(
-      state.userId,
-      "image"
-    );
+    await deductCredits(state.userId, "image", {
+      runId: state.requestId,
+      conversationId: state.conversationId,
+    });
 
     const llm =
       getModel("vision");

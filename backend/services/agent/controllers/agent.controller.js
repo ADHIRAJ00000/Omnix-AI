@@ -1,6 +1,7 @@
 import { graph } from "../graph/supervisor.graph.js";
 import { addMessage, clearMemory } from "../utils/memory.js";
 import { internalClient, asUser } from "../utils/internalClient.js";
+import { refundCredits } from "../utils/deductCredits.js";
 import { env } from "../config/env.js";
 
 /**
@@ -29,10 +30,24 @@ export const chat = async (req, res) => {
       requestId: req.id,
     });
   } catch (error) {
+    /**
+     * Credits are taken before the model is called, so a failure here means the
+     * user paid for an answer they never got. Refunding by run id reverses every
+     * charge the run made — a search request pays twice, once for the search
+     * agent and once for the chat agent, and both come back.
+     *
+     * A run rejected for insufficient credits never charged anything, so there
+     * is nothing to reverse and the refund is a no-op. That is why it is safe to
+     * call unconditionally rather than trying to work out whether we got far
+     * enough to pay.
+     */
+    await refundCredits(userId, req.id, { log: req.log });
+
     // The graph may have written the user's turn into the cached window before
     // failing. Dropping the cache forces the next read to rebuild from MongoDB,
     // which is the source of truth, rather than trusting a half-written window.
     await clearMemory(conversationId);
+
     throw error;
   }
 

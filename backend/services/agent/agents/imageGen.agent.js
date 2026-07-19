@@ -14,13 +14,10 @@ await checkAgentLimit(
     state.userId,
     "image"
   );
- await deductCredits(
-
-        state.userId,
-
-        "image"
-
-    );
+ await deductCredits(state.userId, "image", {
+      runId: state.requestId,
+      conversationId: state.conversationId,
+    });
 
 
     const llm =

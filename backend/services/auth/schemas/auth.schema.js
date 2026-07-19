@@ -62,6 +62,9 @@ export const updatePlanSchema = {
     // plan ids that can ever be sent here.
     plan: z.enum(["free", "starter", "pro"]),
     credits: z.number().int().min(0).max(100_000),
+    // The Razorpay order id, used as the ledger's idempotency key so a
+    // duplicate webhook cannot record the same purchase twice.
+    reference: z.string().max(200).optional(),
   }),
 };
 
@@ -69,5 +72,16 @@ export const deductCreditsSchema = {
   body: z.object({
     userId: objectId,
     agent: z.enum(Object.keys(AGENT_COSTS)),
+    // Identifies the agent run. Charges sharing a runId are refunded together,
+    // and it doubles as the idempotency key so a retry cannot charge twice.
+    runId: z.string().min(1).max(200).optional(),
+    conversationId: objectId.optional(),
+  }),
+};
+
+export const refundCreditsSchema = {
+  body: z.object({
+    userId: objectId,
+    runId: z.string().min(1).max(200),
   }),
 };

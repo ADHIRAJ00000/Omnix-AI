@@ -10,13 +10,10 @@ await checkAgentLimit(
     state.userId,
     "search"
   );
-  await deductCredits(
-
-        state.userId,
-
-        "search"
-
-    ); 
+  await deductCredits(state.userId, "search", {
+      runId: state.requestId,
+      conversationId: state.conversationId,
+    }); 
  try{
 
   const results =

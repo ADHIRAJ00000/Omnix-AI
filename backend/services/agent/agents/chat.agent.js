@@ -13,13 +13,10 @@ await checkAgentLimit(
     "chat"
   );
 
-   await deductCredits(
-
-        state.userId,
-
-        "chat"
-
-    );
+   await deductCredits(state.userId, "chat", {
+      runId: state.requestId,
+      conversationId: state.conversationId,
+    });
 
 
  const llm =

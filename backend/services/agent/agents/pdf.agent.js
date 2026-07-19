@@ -13,13 +13,10 @@ await checkAgentLimit(
     state.userId,
     "pdf"
   );
- await deductCredits(
-
-        state.userId,
-
-        "pdf"
-
-    );  
+ await deductCredits(state.userId, "pdf", {
+      runId: state.requestId,
+      conversationId: state.conversationId,
+    });  
     const llm =
       getModel("pdf");
 

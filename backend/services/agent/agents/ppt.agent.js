@@ -268,13 +268,10 @@ export const pptAgent = async (state) => {
         "ppt"
       );
 
-      await deductCredits(
-
-        state.userId,
-
-        "ppt"
-
-    ); 
+      await deductCredits(state.userId, "ppt", {
+      runId: state.requestId,
+      conversationId: state.conversationId,
+    }); 
     const llm = getModel("ppt");
 
     const aiResponse = await llm.invoke(`

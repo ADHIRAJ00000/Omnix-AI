@@ -2,7 +2,12 @@ import { getAuth } from "firebase-admin/auth";
 import User from "../models/user.model.js";
 import { getFirebaseApp } from "../config/firebase.js";
 import { AppError } from "../../../shared/errors/AppError.js";
-import { costForAgent } from "../config/credits.js";
+import CreditLedger from "../models/creditLedger.model.js";
+import {
+  chargeForAgentRun,
+  grantCredits,
+  refundRun,
+} from "../services/credit.service.js";
 import { hashPassword, verifyPassword } from "../utils/password.js";
 import { clearLoginAttempts } from "../middlewares/loginRateLimit.middleware.js";
 import {
@@ -14,6 +19,22 @@ import {
 } from "../services/token.service.js";
 
 const REFRESH_COOKIE = "refreshToken";
+
+/**
+ * Records the free credits a new account starts with.
+ *
+ * Without this the ledger would not account for the opening balance, so its
+ * entries would never sum to the user's credits and the consistency check
+ * would report every account as broken.
+ */
+const recordSignupGrant = (user) =>
+  grantCredits({
+    userId: user._id,
+    amount: user.credits,
+    reason: "signup_grant",
+    idempotencyKey: `signup:${user._id}`,
+    balanceAfter: user.credits,
+  });
 
 /** Issues a fresh token pair and sets the refresh cookie. */
 const issueSession = async (user, res) => {
@@ -45,6 +66,8 @@ export const register = async (req, res) => {
     passwordHash: await hashPassword(password),
     providers: ["password"],
   });
+
+  await recordSignupGrant(user);
 
   const accessToken = await issueSession(user, res);
 
@@ -145,6 +168,7 @@ export const googleLogin = async (req, res) => {
       avatar: decoded.picture,
       providers: ["google"],
     });
+    await recordSignupGrant(user);
     req.log.info({ userId: user._id }, "new user registered with google");
   }
 
@@ -234,7 +258,7 @@ export const updateMe = async (req, res) => {
 };
 
 export const updatePlan = async (req, res) => {
-  const { userId, plan, credits } = req.body;
+  const { userId, plan, credits, reference } = req.body;
 
   // $inc rather than read-modify-write: two payments landing at the same moment
   // would otherwise both read the old balance and one top-up would be lost.
@@ -254,63 +278,74 @@ export const updatePlan = async (req, res) => {
     throw AppError.notFound("User not found");
   }
 
+  // Keyed on the Razorpay order so a webhook delivered twice records the
+  // purchase once. The billing service also guards this, but the ledger must be
+  // correct on its own rather than trusting its caller.
+  await grantCredits({
+    userId,
+    amount: credits,
+    reason: "purchase",
+    idempotencyKey: reference ? `purchase:${reference}` : undefined,
+    balanceAfter: user.credits,
+  });
+
   req.log.info({ userId, plan, credits }, "plan updated");
 
   return res.json({ success: true });
 };
 
 export const deductCredits = async (req, res) => {
-  const { userId, agent } = req.body;
-  const requiredCredits = costForAgent(agent);
+  const { userId, agent, runId, conversationId } = req.body;
 
-  /**
-   * One atomic operation: "decrement, but only if the balance is still high
-   * enough." Mongo evaluates the filter and the update together, so two agent
-   * runs starting at the same instant cannot both pass the check against the
-   * same balance and each get a run for one charge.
-   */
-  const user = await User.findOneAndUpdate(
-    { _id: userId, credits: { $gte: requiredCredits } },
-    { $inc: { credits: -requiredCredits } },
-    { new: true }
-  );
+  const { credits } = await chargeForAgentRun({
+    userId,
+    agent,
+    runId,
+    conversationId,
+    log: req.log,
+  });
 
-  if (!user) {
-    const exists = await User.exists({ _id: userId });
-
-    if (!exists) {
-      throw AppError.notFound("User not found");
-    }
-
-    throw AppError.paymentRequired("You do not have enough credits for this action", {
-      required: requiredCredits,
-      agent,
-    });
-  }
-
-  req.log.info(
-    { userId, agent, charged: requiredCredits, remaining: user.credits },
-    "credits deducted"
-  );
-
-  return res.json({ success: true, credits: user.credits });
+  return res.json({ success: true, credits });
 };
 
 /**
- * Gives credits back when an agent run fails after it was charged.
- * Without this, a crashed or aborted run silently costs the user money.
+ * Gives back everything a failed run was charged.
+ *
+ * Reverses every charge sharing the run id, because one request can pay more
+ * than once — a search request pays for the search agent and then the chat
+ * agent. Refunding only the last one would leave the user short.
  */
 export const refundCredits = async (req, res) => {
-  const { userId, agent } = req.body;
-  const amount = costForAgent(agent);
+  const { userId, runId } = req.body;
 
-  const user = await User.findByIdAndUpdate(userId, { $inc: { credits: amount } }, { new: true });
+  const { refunded, credits } = await refundRun({ userId, runId, log: req.log });
 
-  if (!user) {
-    throw AppError.notFound("User not found");
-  }
+  return res.json({ success: true, refunded, credits });
+};
 
-  req.log.info({ userId, agent, refunded: amount }, "credits refunded");
+/**
+ * The user's credit history, newest first.
+ *
+ * Read straight from the ledger, which is why keeping one matters: this page is
+ * impossible to build from a bare balance.
+ */
+export const getTransactions = async (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 50, 100);
 
-  return res.json({ success: true, credits: user.credits });
+  const entries = await CreditLedger.find({ userId: req.user.userId })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean();
+
+  return res.json({
+    success: true,
+    transactions: entries.map((entry) => ({
+      id: entry._id,
+      delta: entry.delta,
+      reason: entry.reason,
+      agentType: entry.agentType,
+      balanceAfter: entry.balanceAfter,
+      createdAt: entry.createdAt,
+    })),
+  });
 };

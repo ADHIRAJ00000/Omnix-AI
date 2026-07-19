@@ -5,17 +5,18 @@ import { AppError } from "../../../shared/errors/AppError.js";
 /**
  * Charges the user for an agent run.
  *
- * Translates the auth service's reply into an AppError so it flows through the
- * same error handler as everything else. A 402 is passed through unchanged —
- * "not enough credits" is the user's answer, and the UI keys off that code to
- * show the upgrade prompt.
+ * `runId` ties every charge made while serving one request together. It matters
+ * because a single request can charge more than once — a search request pays
+ * for the search agent and then the chat agent — and a refund has to reverse
+ * all of them. It is also the idempotency key, so a retried call cannot charge
+ * the same work twice.
  */
-export const deductCredits = async (userId, agent, requestId) => {
+export const deductCredits = async (userId, agent, { runId, conversationId } = {}) => {
   try {
     await internalClient.patch(
       `${env.AUTH_SERVICE}/internal/deduct-credits`,
-      { userId, agent },
-      { headers: requestId ? { "x-request-id": requestId } : {} }
+      { userId, agent, runId, conversationId },
+      { headers: runId ? { "x-request-id": runId } : {} }
     );
   } catch (error) {
     // The internal client has already turned any 4xx into an AppError carrying
@@ -29,21 +30,29 @@ export const deductCredits = async (userId, agent, requestId) => {
 };
 
 /**
- * Returns credits after a run that was charged but then failed.
+ * Returns everything a failed run was charged.
  *
  * Deliberately never throws: it runs on the failure path, and a refund problem
- * must not replace the original error the user actually needs to see. It is
- * logged instead so the discrepancy is still visible.
+ * must not replace the original error the user needs to see. A failure is
+ * logged instead, so the discrepancy stays visible rather than silent.
  */
-export const refundCredits = async (userId, agent, { log, requestId } = {}) => {
+export const refundCredits = async (userId, runId, { log } = {}) => {
+  if (!runId) return;
+
   try {
-    await internalClient.patch(
+    const { data } = await internalClient.patch(
       `${env.AUTH_SERVICE}/internal/refund-credits`,
-      { userId, agent },
-      { headers: requestId ? { "x-request-id": requestId } : {} }
+      { userId, runId },
+      { headers: { "x-request-id": runId } }
     );
-    log?.info({ userId, agent }, "credits refunded after failed run");
+
+    if (data?.refunded > 0) {
+      log?.info({ userId, runId, refunded: data.refunded }, "credits refunded after failed run");
+    }
   } catch (error) {
-    log?.error({ err: error, userId, agent }, "refund failed, user was charged for a failed run");
+    log?.error(
+      { err: error, userId, runId },
+      "refund failed, user may have been charged for a failed run"
+    );
   }
 };
