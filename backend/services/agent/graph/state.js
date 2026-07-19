@@ -35,6 +35,12 @@ Annotation.Root({
  Annotation(),
 
  pdfContext:
+ Annotation(),
+
+ // Carried through the graph so calls made from inside a node can be traced
+ // back to the HTTP request that started the run. LangGraph drops any key that
+ // is not declared here, so it has to be part of the state.
+ requestId:
  Annotation()
 
 });

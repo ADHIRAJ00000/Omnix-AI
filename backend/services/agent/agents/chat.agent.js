@@ -27,7 +27,9 @@ await checkAgentLimit(
 
  const history =
  await getMemory(
-  state.conversationId
+  state.conversationId,
+  state.userId,
+  state.requestId
  );
 
  
