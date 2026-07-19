@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Secrets — never commit real credentials.
+# Each service keeps a committed .env.example documenting the required keys.
+.env
+.env.local
+.env.*.local
+backend/services/auth/serviceAccount.json
+
+# Build output
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Uploads / generated artifacts
+uploads/
+tmp/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
