@@ -1,26 +1,10 @@
-export const getCurrentUser =
-async(req,res)=>{
-
- try{
-
-  return res.status(200).json({
-
-   success:true,
-
-   user:req.user
-
+/**
+ * Returns the session the gateway already resolved, so the frontend can
+ * rehydrate the signed-in user on page load without a database round trip.
+ */
+export const getCurrentUser = (req, res) => {
+  res.status(200).json({
+    success: true,
+    user: req.user,
   });
-
- }catch(error){
-
-  return res.status(500).json({
-
-   success:false,
-
-   message:error.message
-
-  });
-
- }
-
-}
+};

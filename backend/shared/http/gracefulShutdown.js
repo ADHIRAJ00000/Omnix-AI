@@ -9,7 +9,11 @@ import mongoose from "mongoose";
  * current ones finish, close the database, then exit — with a hard timeout so a
  * stuck request cannot block the deploy forever.
  */
-export const attachGracefulShutdown = (server, logger, { timeoutMs = 10_000 } = {}) => {
+export const attachGracefulShutdown = (
+  server,
+  logger,
+  { timeoutMs = 10_000, onShutdown } = {}
+) => {
   let shuttingDown = false;
 
   const shutdown = async (signal) => {
@@ -26,6 +30,12 @@ export const attachGracefulShutdown = (server, logger, { timeoutMs = 10_000 } = 
 
     server.close(async () => {
       try {
+        // Service-specific cleanup (closing Redis, flushing queues) before we
+        // tear down the database connection.
+        if (onShutdown) {
+          await onShutdown();
+        }
+
         if (mongoose.connection.readyState === 1) {
           await mongoose.connection.close();
         }

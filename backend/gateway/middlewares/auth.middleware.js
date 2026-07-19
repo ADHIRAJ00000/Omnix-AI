@@ -1,46 +1,29 @@
 import redis from "../../shared/redis/redis.js";
+import { AppError } from "../../shared/errors/AppError.js";
+import { asyncHandler } from "../../shared/http/asyncHandler.js";
 
+/**
+ * Turns the session cookie into req.user.
+ *
+ * The session lives in Redis, so signing out (or expiry) takes effect
+ * immediately across every service — unlike a self-contained token, which stays
+ * valid until it expires no matter what the server thinks.
+ */
+export const protect = asyncHandler(async (req, res, next) => {
+  const sessionId = req.cookies?.session;
 
-export const protect =
-async(req,res,next)=>{
+  if (!sessionId) {
+    throw AppError.unauthorized();
+  }
 
- try{
+  const session = await redis.get(`session:${sessionId}`);
 
-   const sessionId =
-   req?.cookies?.session;
-  
-   if(!sessionId){
+  if (!session) {
+    throw AppError.unauthorized("Your session has expired, please sign in again");
+  }
 
-     return res.status(401).json({
-       message:"Unauthorized"
-     });
+  req.user = JSON.parse(session);
+  req.log = req.log.child({ userId: req.user.userId });
 
-   }
-
-   const session =
-   await redis.get(
-    `session:${sessionId}`
-   );
-
-   if(!session){
-
-     return res.status(401).json({
-       message:"Session Expired"
-     });
-
-   }
-
-   req.user =
-   JSON.parse(session);
-
-   next();
-
- }catch(error){
-
-   return res.status(500).json({
-    message:error.message
-   });
-
- }
-
-}
+  next();
+});
