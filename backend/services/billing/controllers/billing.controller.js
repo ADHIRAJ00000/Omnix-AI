@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import axios from "axios";
+import { internalClient } from "../utils/internalClient.js";
 
 import razorpay from "../config/razorpay.js";
 import { PLANS } from "../config/plans.js";
@@ -97,7 +97,7 @@ export const verifyPayment = async (req, res) => {
     {
       $set: { status: "paid", paymentId: razorpay_payment_id },
     },
-    { new: true }
+    { returnDocument: "after" }
   );
 
   if (!payment) {
@@ -130,7 +130,7 @@ export const verifyPayment = async (req, res) => {
    * who paid and got nothing.
    */
   try {
-    await axios.patch(
+    await internalClient.patch(
       `${env.AUTH_SERVICE}/internal/update-plan`,
       {
         userId: payment.userId,
@@ -141,8 +141,8 @@ export const verifyPayment = async (req, res) => {
         reference: razorpay_order_id,
       },
       {
-        headers: { "x-internal-key": env.INTERNAL_API_KEY, "x-request-id": req.id },
-        timeout: 10_000,
+        // The internal key and timeout come from the client itself.
+        headers: { "x-request-id": req.id },
       }
     );
   } catch (error) {

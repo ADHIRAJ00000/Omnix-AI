@@ -1,10 +1,38 @@
-
+# Local dependencies for development and tests.
+#
+# Both use named volumes so data survives a restart, and healthchecks so
+# `docker compose up --wait` only returns once they can actually accept
+# connections — otherwise a service can start faster than the database and fail
+# its first query.
 
 services:
+  mongo:
+    image: mongo:7
+    container_name: cortex-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   redis:
-    image: redis
+    image: redis:7
+    container_name: cortex-redis
     ports:
       - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
-
-
+volumes:
+  mongo-data:
+  redis-data:

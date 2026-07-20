@@ -51,7 +51,7 @@ export const updateConversation = async (req, res) => {
   const conversation = await Conversation.findByIdAndUpdate(
     conversationId,
     { title },
-    { new: true }
+    { returnDocument: "after" }
   );
 
   res.json(conversation);

@@ -52,7 +52,7 @@ export const chargeForAgentRun = async ({ userId, agent, runId, conversationId, 
   const user = await User.findOneAndUpdate(
     { _id: userId, credits: { $gte: amount } },
     { $inc: { credits: -amount } },
-    { new: true }
+    { returnDocument: "after" }
   );
 
   if (!user) {
@@ -144,7 +144,7 @@ export const refundRun = async ({ userId, runId, log }) => {
     const user = await User.findByIdAndUpdate(
       userId,
       { $inc: { credits: amount } },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!user) {

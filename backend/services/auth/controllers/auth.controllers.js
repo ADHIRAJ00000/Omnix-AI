@@ -247,7 +247,7 @@ export const updateMe = async (req, res) => {
   const user = await User.findByIdAndUpdate(
     req.user.userId,
     { $set: { ...(name && { name }), ...(avatar && { avatar }) } },
-    { new: true }
+    { returnDocument: "after" }
   );
 
   if (!user) {
@@ -271,7 +271,7 @@ export const updatePlan = async (req, res) => {
         planExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
     },
-    { new: true }
+    { returnDocument: "after" }
   );
 
   if (!user) {
