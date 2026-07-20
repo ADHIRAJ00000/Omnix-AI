@@ -1,0 +1,178 @@
+# Render Blueprint — deploys the whole backend from one file.
+#
+# Import this once ("New +" -> "Blueprint") and Render creates all five
+# services. Everything marked `sync: false` is a secret you fill in through the
+# dashboard; nothing sensitive is stored in this file or in git.
+#
+# COLD STARTS: free services sleep after 15 minutes idle and take ~50 seconds to
+# wake. Because the gateway calls the other services, a first request after a nap
+# can wake several in sequence. See README "Deployment" for how to avoid that.
+#
+# The free tier grants a fixed pool of instance-hours per month shared across all
+# free services, which is why keeping five awake around the clock is not an
+# option — sleeping is what keeps this within the free allowance.
+
+services:
+  - type: web
+    name: cortex-gateway
+    runtime: docker
+    plan: free
+    region: singapore # closest to India; keep every service in one region
+    dockerfilePath: ./gateway/Dockerfile
+    dockerContext: . # the build context is backend/, since services share shared/
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8000
+      # Internal service URLs. Render resolves these once the services exist;
+      # paste each service's URL here after the first deploy.
+      - key: AUTH_SERVICE
+        sync: false
+      - key: CHAT_SERVICE
+        sync: false
+      - key: AGENT_SERVICE
+        sync: false
+      - key: BILLING_SERVICE
+        sync: false
+      # The deployed frontend origin, e.g. https://cortex-ai.vercel.app
+      - key: CORS_ORIGINS
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      # Must be byte-identical across every service below.
+      - key: INTERNAL_API_KEY
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 60000
+      - key: RATE_LIMIT_MAX
+        value: 120
+
+  - type: web
+    name: cortex-auth
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./services/auth/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8001
+      - key: MONGODB_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: INTERNAL_API_KEY
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: ACCESS_TOKEN_TTL
+        value: 15m
+      - key: REFRESH_TOKEN_TTL_SECONDS
+        value: 604800
+      # Google sign-in only. The whole service account JSON on one line.
+      # Leave unset to run with email/password sign-in alone.
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
+
+  - type: web
+    name: cortex-chat
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./services/chat/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8002
+      - key: MONGODB_URL
+        sync: false
+      - key: INTERNAL_API_KEY
+        sync: false
+
+  - type: web
+    name: cortex-agent
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./services/agent/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8003
+      - key: MONGODB_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: INTERNAL_API_KEY
+        sync: false
+      - key: CHAT_SERVICE
+        sync: false
+      - key: AUTH_SERVICE
+        sync: false
+      - key: GATEWAY_URL
+        sync: false
+      - key: MAX_MEMORY_MESSAGES
+        value: 20
+      # Model providers. Only the ones you actually use need a value — each
+      # agent reports clearly if the key it needs is missing.
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      # File storage, needed by the pdf, ppt and image agents.
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        value: ap-south-1
+      - key: AWS_BUCKET_NAME
+        sync: false
+      # Vector database, needed by the PDF RAG agent.
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+
+  - type: web
+    name: cortex-billing
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./services/billing/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8004
+      - key: MONGODB_URL
+        sync: false
+      - key: AUTH_SERVICE
+        sync: false
+      - key: INTERNAL_API_KEY
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false

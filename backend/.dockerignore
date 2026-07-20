@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+.env
+.env.*
+!.env.example
+**/serviceAccount.json
+tests
+*.test.js
+vitest.config.js
+.git
+.gitignore
+*.log
+.DS_Store
+docker-compose*.yml
