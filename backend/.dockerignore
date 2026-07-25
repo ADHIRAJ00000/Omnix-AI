@@ -1,9 +1,22 @@
 node_modules
 **/node_modules
+
+# Secrets must never enter an image: layers are extractable, so anyone who can
+# pull it can read them, and a rotated key stays valid in every old image.
+#
+# Both forms are needed. A bare `.env` matches only the context root, so the
+# per-service files at services/*/.env were being copied in — the same reason
+# `**/node_modules` sits above alongside `node_modules`. Configuration reaches
+# the container through the environment instead.
 .env
 .env.*
+**/.env
+**/.env.*
 !.env.example
+!**/.env.example
+serviceAccount.json
 **/serviceAccount.json
+
 tests
 *.test.js
 vitest.config.js
