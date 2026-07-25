@@ -4,6 +4,14 @@
 # services. Everything marked `sync: false` is a secret you fill in through the
 # dashboard; nothing sensitive is stored in this file or in git.
 #
+# BLUEPRINT PATH: this file lives at backend/render.yaml, so enter that path in
+# Render's "Blueprint Path" field — it looks at the repository root by default.
+#
+# PATHS BELOW ARE REPO-ROOT RELATIVE, not relative to this file, which is why
+# every one starts with ./backend. The build context stays backend/ because the
+# services import backend/shared, so a context of backend/gateway alone could
+# not see the code it needs.
+#
 # COLD STARTS: free services sleep after 15 minutes idle and take ~50 seconds to
 # wake. Because the gateway calls the other services, a first request after a nap
 # can wake several in sequence. See README "Deployment" for how to avoid that.
@@ -18,8 +26,8 @@ services:
     runtime: docker
     plan: free
     region: singapore # closest to India; keep every service in one region
-    dockerfilePath: ./gateway/Dockerfile
-    dockerContext: . # the build context is backend/, since services share shared/
+    dockerfilePath: ./backend/gateway/Dockerfile
+    dockerContext: ./backend # services share backend/shared, so the context is backend/
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
@@ -56,8 +64,8 @@ services:
     runtime: docker
     plan: free
     region: singapore
-    dockerfilePath: ./services/auth/Dockerfile
-    dockerContext: .
+    dockerfilePath: ./backend/services/auth/Dockerfile
+    dockerContext: ./backend
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
@@ -88,8 +96,8 @@ services:
     runtime: docker
     plan: free
     region: singapore
-    dockerfilePath: ./services/chat/Dockerfile
-    dockerContext: .
+    dockerfilePath: ./backend/services/chat/Dockerfile
+    dockerContext: ./backend
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
@@ -106,8 +114,8 @@ services:
     runtime: docker
     plan: free
     region: singapore
-    dockerfilePath: ./services/agent/Dockerfile
-    dockerContext: .
+    dockerfilePath: ./backend/services/agent/Dockerfile
+    dockerContext: ./backend
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
@@ -158,8 +166,8 @@ services:
     runtime: docker
     plan: free
     region: singapore
-    dockerfilePath: ./services/billing/Dockerfile
-    dockerContext: .
+    dockerfilePath: ./backend/services/billing/Dockerfile
+    dockerContext: ./backend
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
