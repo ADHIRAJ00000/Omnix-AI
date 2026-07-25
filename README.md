@@ -5,7 +5,10 @@ request to a specialist agent — chat, web search, code generation, PDF and
 slide generation, vision, and retrieval over uploaded documents — with credits
 metered per run and billing behind Razorpay.
 
-> **Live demo:** _add your URL here after deploying_
+> **Live demo:** **https://cortex-ai-tau-seven.vercel.app**
+>
+> Hosted entirely on free tiers, so the first request after an idle period wakes
+> the backend and can take up to a minute. Later requests are fast.
 
 ---
 
@@ -128,8 +131,9 @@ will tell you which key is missing rather than failing obscurely.
 
 | Key | Needed for | Free? |
 |---|---|---|
-| `GOOGLE_API_KEY` | Chat agent, embeddings | Yes — [aistudio.google.com](https://aistudio.google.com/apikey) |
-| `GROQ_API_KEY` | Fast model fallback | Yes — [console.groq.com](https://console.groq.com/keys) |
+| `GROQ_API_KEY` | Chat, search and image agents — the key that makes basic chat work | Yes — [console.groq.com](https://console.groq.com/keys) |
+| `GOOGLE_API_KEY` | Vision agent and RAG embeddings | Yes — [aistudio.google.com](https://aistudio.google.com/apikey) |
+| `OPENROUTER_API_KEY` | Coding agent | Yes — [openrouter.ai](https://openrouter.ai/keys) |
 | `TAVILY_API_KEY` | Search agent | Yes, 1000/month |
 | `QDRANT_URL` / `QDRANT_API_KEY` | PDF RAG agent | Yes, 1GB — [cloud.qdrant.io](https://cloud.qdrant.io) |
 | `AWS_*` | PDF, PPT, image artifacts | 5GB free for 12 months |
@@ -184,7 +188,14 @@ Then fill in the environment variables Render marks as required:
 - On the gateway, set `AUTH_SERVICE`, `CHAT_SERVICE`, `AGENT_SERVICE` and
   `BILLING_SERVICE` to the other services' Render URLs (available after their
   first deploy), and `CORS_ORIGINS` to your Vercel URL
+- On the agent, set `CHAT_SERVICE`, `AUTH_SERVICE` and `GATEWAY_URL`; on
+  billing, `AUTH_SERVICE`
 - Provider keys on the agent service, Razorpay keys on billing
+
+Read those URLs from the dashboard rather than assuming them. `.onrender.com`
+subdomains are globally unique, so a name already in use gets a random suffix —
+`cortex-auth` may well arrive as `cortex-auth-6bbt`, and pointing a service at
+the name you expected sends internal traffic to a stranger's deployment.
 
 ### 3. Frontend
 
@@ -192,7 +203,10 @@ Import the repo in Vercel, set the root directory to `frontend`, and set
 `VITE_SERVER_URL` to your gateway's Render URL. `vercel.json` already handles
 SPA routing and asset caching.
 
-Finally set `CORS_ORIGINS` on the gateway to the Vercel URL and redeploy it.
+Finally set `CORS_ORIGINS` on the gateway and `FRONTEND_URL` on auth to the
+Vercel URL, with no trailing slash, and redeploy both. Origins are compared
+literally, and `FRONTEND_URL` scopes the refresh cookie — get it wrong and
+sign-in appears to work but the session is lost on the next page load.
 
 ### Free-tier reality
 
