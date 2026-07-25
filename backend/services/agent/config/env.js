@@ -1,8 +1,7 @@
 import { z } from "zod";
-import dotenv from "dotenv";
-import { loadEnv, envPrimitives } from "../../../shared/config/env.js";
+import { loadDotenv, loadEnv, envPrimitives } from "../../../shared/config/env.js";
 
-dotenv.config();
+loadDotenv(import.meta.url);
 
 /**
  * Provider API keys are intentionally optional here.
@@ -32,6 +31,15 @@ export const env = loadEnv(
     GROQ_API_KEY: z.string().optional(),
     OPENROUTER_API_KEY: z.string().optional(),
     TAVILY_API_KEY: z.string().optional(),
+
+    /**
+     * Model names belong in config, not in code: providers retire model ids on
+     * their own schedule, and swapping one should not need a code change or a
+     * redeploy of anything but an environment variable.
+     */
+    GROQ_MODEL: z.string().default("llama-3.3-70b-versatile"),
+    GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
+    OPENROUTER_MODEL: z.string().default("deepseek/deepseek-chat"),
 
     AWS_ACCESS_KEY_ID: z.string().optional(),
     AWS_SECRET_ACCESS_KEY: z.string().optional(),
