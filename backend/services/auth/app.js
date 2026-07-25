@@ -1,6 +1,17 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 
+/**
+ * Loaded first, and for its side effect: it reads .env into process.env.
+ *
+ * ES module imports are evaluated in order, and the router below reaches the
+ * shared Redis client through the token service. If that client is imported
+ * before the environment is loaded it sees no REDIS_URL — which used to mean it
+ * quietly connected to localhost and only failed once deployed somewhere that
+ * has no local Redis.
+ */
+import "./config/env.js";
+
 import router from "./routes/auth.routes.js";
 import { createLogger } from "../../shared/logger/logger.js";
 import { requestId, requestLogger } from "../../shared/http/requestId.js";

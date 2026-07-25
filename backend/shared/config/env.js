@@ -1,4 +1,26 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import dotenv from "dotenv";
 import { z } from "zod";
+
+/**
+ * Loads the .env file that sits next to the service being started.
+ *
+ * Why not plain dotenv.config(): it resolves .env against the *current working
+ * directory*, and every service is started from backend/ (`npm run dev:auth`).
+ * That made it look for backend/.env — a file that does not exist — so nothing
+ * was ever loaded and every service died claiming its config was missing.
+ * Resolving against this module's own location instead makes the lookup
+ * independent of where the process was launched from, which also keeps local
+ * runs, Docker and Render behaving identically.
+ *
+ * Call it as loadDotenv(import.meta.url) from a service's config/env.js; the
+ * .env is one level up from that config/ directory.
+ */
+export const loadDotenv = (metaUrl) => {
+  const configDir = path.dirname(fileURLToPath(metaUrl));
+  dotenv.config({ path: path.resolve(configDir, "../.env") });
+};
 
 /**
  * Validates environment variables at boot and stops the process if any are

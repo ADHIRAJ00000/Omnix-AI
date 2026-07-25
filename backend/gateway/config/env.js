@@ -1,8 +1,7 @@
 import { z } from "zod";
-import dotenv from "dotenv";
-import { loadEnv, envPrimitives } from "../../shared/config/env.js";
+import { loadDotenv, loadEnv, envPrimitives } from "../../shared/config/env.js";
 
-dotenv.config();
+loadDotenv(import.meta.url);
 
 export const env = loadEnv(
   z.object({
