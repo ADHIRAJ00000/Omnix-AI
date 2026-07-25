@@ -50,6 +50,11 @@ export const env = loadEnv(
     QDRANT_API_KEY: z.string().optional(),
 
     MAX_MEMORY_MESSAGES: z.coerce.number().int().positive().default(20),
+
+    // Where uploads are staged before an agent reads them. Defaults to the
+    // system temp directory, which is writable regardless of the user the
+    // container runs as.
+    UPLOAD_TEMP_DIR: z.string().optional(),
     LOG_LEVEL: z.string().optional(),
   })
 );
