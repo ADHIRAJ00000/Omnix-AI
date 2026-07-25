@@ -138,7 +138,20 @@ will tell you which key is missing rather than failing obscurely.
 | `QDRANT_URL` / `QDRANT_API_KEY` | PDF RAG agent | Yes, 1GB — [cloud.qdrant.io](https://cloud.qdrant.io) |
 | `AWS_*` | PDF, PPT, image artifacts | 5GB free for 12 months |
 | `RAZORPAY_*` | Billing | Test mode is free |
-| `VITE_FIREBASE_API_KEY` | Google sign-in (optional) | Yes |
+| `VITE_FIREBASE_*` + `FIREBASE_SERVICE_ACCOUNT` | Google sign-in (optional) | Yes |
+
+Google sign-in needs both halves. The frontend takes four public values —
+`VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`
+and `VITE_FIREBASE_APP_ID` — from Firebase console → Project settings → General
+→ Your apps. The auth service takes `FIREBASE_SERVICE_ACCOUNT`, the whole
+service-account JSON from the Service accounts tab, which verifies the ID tokens
+those produce and is a genuine secret.
+
+Add your deployed origin under Authentication → Settings → Authorized domains,
+or the popup opens and dies with `auth/unauthorized-domain`. Firebase is only
+the identity provider here: it proves who the user is, then the auth service
+issues its own tokens, so Google and password users share one session
+mechanism.
 
 ---
 
