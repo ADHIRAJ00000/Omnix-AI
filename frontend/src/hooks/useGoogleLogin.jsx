@@ -1,7 +1,19 @@
 import { loginWithGoogle } from "../features/auth.api";
 
-/** Google sign-in needs real Firebase config; without it the button cannot work. */
-export const isGoogleConfigured = () => Boolean(import.meta.env.VITE_FIREBASE_API_KEY);
+/**
+ * Google sign-in needs real Firebase config; without it the button cannot work.
+ *
+ * All three are checked, not just the key: the popup is served from authDomain
+ * and the ID token is issued against projectId, so a partial config produces a
+ * popup that opens and then fails, which is harder to diagnose than a button
+ * that never appears.
+ */
+export const isGoogleConfigured = () =>
+  Boolean(
+    import.meta.env.VITE_FIREBASE_API_KEY &&
+      import.meta.env.VITE_FIREBASE_AUTH_DOMAIN &&
+      import.meta.env.VITE_FIREBASE_PROJECT_ID
+  );
 
 /**
  * Firebase proves who the user is, then our backend issues its own tokens.
@@ -20,7 +32,9 @@ export const useGoogleLogin = () => {
   return async () => {
     if (!isGoogleConfigured()) {
       throw new Error(
-        "Google sign-in is not configured. Add VITE_FIREBASE_API_KEY to the frontend .env, or sign in with email instead."
+        "Google sign-in is not configured. Add VITE_FIREBASE_API_KEY, " +
+          "VITE_FIREBASE_AUTH_DOMAIN and VITE_FIREBASE_PROJECT_ID to the " +
+          "frontend .env, or sign in with email instead."
       );
     }
 
