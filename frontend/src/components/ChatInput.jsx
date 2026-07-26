@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Send, Paperclip,  Square, Zap, MessageSquare, Code2, Presentation, Image as ImageIcon, Globe, FileText,X } from "lucide-react";
+import { Send, Paperclip,  Square, MessageSquare, Code2, Presentation, Image as ImageIcon, Globe, FileText,X } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { addMessage, setArtifacts, setIsLoading } from "../redux/message.slice";
 import { sendPrompt } from "../features/agent.api";
@@ -12,7 +12,7 @@ import { useRef } from "react";
 export default function ChatInput({
   setBanner
 }) {
-  const [selectedAgent, setSelectedAgent] =useState("auto");
+  const [selectedAgent, setSelectedAgent] =useState("chat");
   const [value, setValue] = useState("");
 const [isListening, setIsListening] = useState(false);
 
@@ -32,9 +32,7 @@ setSelectedFile
 
    const placeholders={
 
-auto:"Ask CortexAI...",
-
-chat:"Chat with CortexAI...",
+chat:"Chat with Omnix-AI...",
 
 coding:"Describe the software you want...",
 
@@ -49,12 +47,6 @@ search:"Search the web..."
 };
 
    const agents = [
-
-  {
-    id:"auto",
-    icon:Zap,
-    label:"Auto"
-  },
 
   {
     id:"chat",
@@ -168,6 +160,28 @@ const toggleMic = () => {
 
 };
 
+
+  /**
+   * Enter sends, Shift+Enter starts a new line — the convention every chat app
+   * uses, so it is what people's hands already expect.
+   *
+   * The composition check keeps that from firing mid-word for anyone typing
+   * through an IME (Chinese, Japanese, Korean, or a phone keyboard offering
+   * suggestions), where Enter confirms the candidate being typed rather than
+   * finishing the message. Sending there would cut the word in half.
+   */
+  const handleKeyDown = (event) => {
+    if (event.key !== "Enter" || event.shiftKey) return;
+    if (event.nativeEvent.isComposing) return;
+
+    event.preventDefault();
+
+    // Mirrors the send button being disabled: no empty sends, and nothing new
+    // while a reply is still streaming back.
+    if (isLoading || !value.trim()) return;
+
+    handleSend();
+  };
 
   const handleSend = async () => {
     const prompt = value.trim();
@@ -433,6 +447,7 @@ className="text-slate-500 hover:text-white"
         <textarea
           value={value}
           onChange={e => setValue(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder={
 placeholders[selectedAgent]
 }
@@ -553,7 +568,7 @@ isListening
       </div>
 
       <p className="text-center text-[10.5px] text-slate-700 mt-2.5">
-        CortexAI can make mistakes. Verify important info.
+        Omnix-AI can make mistakes. Verify important info.
       </p>
     </div>
   );
