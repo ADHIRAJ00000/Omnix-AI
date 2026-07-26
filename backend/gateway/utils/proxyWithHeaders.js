@@ -82,9 +82,20 @@ export const proxyWithUser = (serviceUrl, targetPrefix) =>
 /**
  * For public routes (login, logout). Still signs the request with the internal
  * key, but strips any user headers a client might have tried to inject.
+ *
+ * `targetPrefix` works as it does above, for public paths whose downstream
+ * route sits somewhere else.
  */
-export const proxyPublic = (serviceUrl) =>
+export const proxyPublic = (serviceUrl, targetPrefix) =>
   proxy(serviceUrl, {
     proxyReqOptDecorator: decorateHeaders,
     proxyErrorHandler: proxyErrorHandler(serviceUrl),
+    ...(targetPrefix
+      ? {
+          proxyReqPathResolver: (req) => {
+            const rest = req.url === "/" ? "" : req.url;
+            return `${targetPrefix}${rest}`;
+          },
+        }
+      : {}),
   });

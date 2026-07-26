@@ -63,6 +63,15 @@ app.use("/api/me", protect, proxyWithUser(env.AUTH_SERVICE, "/me"));
 // Public: register, login, google, refresh and logout all run before a user
 // has an access token, so `protect` cannot apply here.
 app.use("/api/auth", proxyPublic(env.AUTH_SERVICE));
+/**
+ * Public: generated PDFs, decks and images are opened by the browser itself,
+ * from a markdown link or an <img> tag, and neither carries an access token.
+ * Each link is signed and expiring, and the agent service checks that
+ * signature — so this is authorised by possession of the link, like an S3
+ * presigned URL, rather than by a bearer token.
+ */
+app.use("/api/files", proxyPublic(env.AGENT_SERVICE, "/files"));
+
 app.use("/api/chat", protect, proxyWithUser(env.CHAT_SERVICE));
 app.use("/api/agent", protect, proxyWithUser(env.AGENT_SERVICE));
 app.use("/api/billing", protect, proxyWithUser(env.BILLING_SERVICE));

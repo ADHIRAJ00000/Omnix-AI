@@ -38,13 +38,12 @@ export const env = loadEnv(
      * redeploy of anything but an environment variable.
      */
     GROQ_MODEL: z.string().default("llama-3.3-70b-versatile"),
+
+    // Which provider the coding agent uses. Defaults to the one already
+    // powering chat, so code generation works without a second account.
+    CODING_PROVIDER: z.enum(["groq", "gemini", "openRouter"]).default("groq"),
     GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
     OPENROUTER_MODEL: z.string().default("deepseek/deepseek-chat"),
-
-    AWS_ACCESS_KEY_ID: z.string().optional(),
-    AWS_SECRET_ACCESS_KEY: z.string().optional(),
-    AWS_REGION: z.string().default("ap-south-1"),
-    AWS_BUCKET_NAME: z.string().optional(),
 
     QDRANT_URL: z.string().optional(),
     QDRANT_API_KEY: z.string().optional(),

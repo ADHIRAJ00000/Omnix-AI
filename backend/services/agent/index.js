@@ -4,6 +4,7 @@ import multer from "multer";
 import { env } from "./config/env.js";
 import connectDB from "./config/db.js";
 import router from "./routes/agent.route.js";
+import fileRouter from "./routes/file.routes.js";
 import redis from "../../shared/redis/redis.js";
 import { createLogger } from "../../shared/logger/logger.js";
 import { requestId, requestLogger } from "../../shared/http/requestId.js";
@@ -21,6 +22,14 @@ app.use(requestLogger(logger));
 app.get("/health", (req, res) => {
   res.json({ service: "agent-service", status: "ok" });
 });
+
+/**
+ * Mounted before the main router, which requires a signed-in user on every
+ * route it owns. Downloads authorise through the signature in the URL instead,
+ * and Express takes the first match, so the order here is what keeps these two
+ * schemes apart.
+ */
+app.use("/files", fileRouter);
 
 app.use("/", router);
 

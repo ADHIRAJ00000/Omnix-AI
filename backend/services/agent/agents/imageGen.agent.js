@@ -1,8 +1,7 @@
 import axios from "axios";
 import { getModel } from "../utils/model.js";
 
-import { uploadToS3 } from "../utils/uploadToS3.js";
-import { getDownloadUrl } from "../utils/getDownloadUrl.js";
+import { saveArtifact } from "../utils/artifactStore.js";
 import { checkAgentLimit } from "../config/agentRateLimit.js";
 import { deductCredits } from "../utils/deductCredits.js";
 
@@ -74,20 +73,38 @@ ${state.prompt}
         imageResponse.data
       );
 
-    const fileName =
-      `image-${Date.now()}.png`;
+    /**
+     * The generator returns JPEG despite the .png the URL implies, so the type
+     * is taken from the response and confirmed against the file's magic bytes
+     * rather than assumed. Serving JPEG bytes labelled image/png mostly works,
+     * because browsers sniff content — but a download saved as .png that no
+     * image editor will open is a confusing thing to hand someone.
+     */
+    const declaredType = String(imageResponse.headers?.["content-type"] ?? "");
+    const isJpeg =
+      imageBuffer[0] === 0xff && imageBuffer[1] === 0xd8 && imageBuffer[2] === 0xff;
 
-    await uploadToS3(
+    const contentType = isJpeg
+      ? "image/jpeg"
+      : declaredType.startsWith("image/")
+        ? declaredType.split(";")[0]
+        : "image/png";
+
+    const extension = contentType === "image/jpeg" ? "jpg" : "png";
+
+    const fileName =
+      `image-${Date.now()}.${extension}`;
+
+    const { url } = await saveArtifact(
       imageBuffer,
       fileName,
-      "image/png"
+      contentType,
+      {
+        userId: state.userId,
+        conversationId: state.conversationId,
+        ttlSeconds: 24 * 60 * 60,
+      }
     );
-
-    const downloadUrl =
-      await getDownloadUrl(
-        fileName,
-        24*60*60
-      );
 
     return {
 
@@ -96,30 +113,25 @@ ${state.prompt}
      response: `
 # 🖼️ Image Generated Successfully
 
-![Generated Image](${downloadUrl})
+![Generated Image](${url})
 
-📥 [Download Image](${downloadUrl})
+📥 [Download Image](${url})
 
-⏳ Link expires in 10 minutes.
+⏳ Link expires in 24 hours.
 `
 
     };
 
   } catch (error) {
 
-    console.log(
+    console.error(
       "Image Agent Error:",
       error
     );
 
-    return {
-
-      ...state,
-
-      response:
-        "❌ Failed to generate image."
-
-    };
+    // Rethrown so the controller refunds the credits taken above. Returning a
+    // message here counted as a successful run and kept the charge.
+    throw error;
 
   }
 

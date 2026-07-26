@@ -146,15 +146,6 @@ services:
         sync: false
       - key: OPENROUTER_API_KEY
         sync: false
-      # File storage, needed by the pdf, ppt and image agents.
-      - key: AWS_ACCESS_KEY_ID
-        sync: false
-      - key: AWS_SECRET_ACCESS_KEY
-        sync: false
-      - key: AWS_REGION
-        value: ap-south-1
-      - key: AWS_BUCKET_NAME
-        sync: false
       # Vector database, needed by the PDF RAG agent.
       - key: QDRANT_URL
         sync: false
