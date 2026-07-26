@@ -14,7 +14,7 @@ export default function globalSetup() {
   process.env.LOG_LEVEL = "silent";
 
   process.env.MONGODB_URL =
-    process.env.TEST_MONGODB_URL ?? "mongodb://localhost:27017/cortex-ai-test";
+    process.env.TEST_MONGODB_URL ?? "mongodb://localhost:27017/omnix-ai-test";
 
   // Redis database 15, well away from the default 0 used in development.
   process.env.REDIS_URL = process.env.TEST_REDIS_URL ?? "redis://localhost:6379/15";

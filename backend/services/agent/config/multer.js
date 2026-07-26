@@ -16,7 +16,7 @@ import { env } from "./env.js";
  * The system temp directory is writable by any user on every platform, which
  * suits files that only need to survive until the agent reading them is done.
  */
-const uploadDir = env.UPLOAD_TEMP_DIR || path.join(os.tmpdir(), "cortex-uploads");
+const uploadDir = env.UPLOAD_TEMP_DIR || path.join(os.tmpdir(), "omnix-uploads");
 
 fs.mkdirSync(uploadDir, { recursive: true });
 

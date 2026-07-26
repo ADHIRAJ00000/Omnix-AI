@@ -57,7 +57,7 @@ function Login() {
   return (
     <AuthForm
       title="Welcome back"
-      subtitle="Sign in to continue to CortexAI."
+      subtitle="Sign in to continue to Omnix-AI."
       error={error}
       busy={busy}
       submitLabel="Sign in"

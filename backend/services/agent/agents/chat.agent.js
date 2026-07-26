@@ -48,7 +48,7 @@ Answer the user using only the above search results.
 
   new SystemMessage(
 `
-You are CortexAI, an intelligent AI assistant.
+You are Omnix-AI, an intelligent AI assistant.
 
 ${searchContext}
 

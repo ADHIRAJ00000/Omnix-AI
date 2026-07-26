@@ -1,4 +1,4 @@
-# CortexAI
+# Omnix-AI
 
 A multi-agent AI platform built as microservices. A supervisor graph routes each
 request to a specialist agent — chat, web search, code generation, PDF and
@@ -35,7 +35,7 @@ metered per run and billing behind Razorpay.
   └───┬──┘ └───┬──┘ └───┬───┘ └────┬────┘
       │        │        │          │
       ▼        ▼        ▼          ▼
-   MongoDB · Redis · Qdrant · S3 · Gemini/Groq
+   MongoDB · Redis · Qdrant · Gemini/Groq
 ```
 
 Services never call each other's databases. Every internal call is signed with a
@@ -68,6 +68,15 @@ would leave the user short.
 **Idempotency everywhere money moves.** Charges, refunds and payment
 verification are keyed so retries, duplicate webhooks and replayed Razorpay
 responses apply exactly once.
+
+**Generated files live in MongoDB, behind signed links.** PDFs, decks and images
+are stored as bytes and served through URLs carrying an expiring HMAC
+signature — the same idea as an S3 presigned URL, without object storage. The
+signature does the authorising because these links are opened by the browser
+itself, from a markdown link or an `<img>` tag, neither of which sends an
+Authorization header. Documents outlive their links so an expired link can say
+so instead of reporting the file as missing, and a TTL index clears them out so
+the free database tier cannot silently fill up.
 
 ---
 
@@ -136,7 +145,6 @@ will tell you which key is missing rather than failing obscurely.
 | `OPENROUTER_API_KEY` | Coding agent | Yes — [openrouter.ai](https://openrouter.ai/keys) |
 | `TAVILY_API_KEY` | Search agent | Yes, 1000/month |
 | `QDRANT_URL` / `QDRANT_API_KEY` | PDF RAG agent | Yes, 1GB — [cloud.qdrant.io](https://cloud.qdrant.io) |
-| `AWS_*` | PDF, PPT, image artifacts | 5GB free for 12 months |
 | `RAZORPAY_*` | Billing | Test mode is free |
 | `VITE_FIREBASE_*` + `FIREBASE_SERVICE_ACCOUNT` | Google sign-in (optional) | Yes |
 
@@ -166,7 +174,7 @@ npm test
 conversation access control, payment replay, and one real run of the agent graph
 with the model mocked.
 
-Tests use their own database (`cortex-ai-test`) and Redis index, and refuse to
+Tests use their own database (`omnix-ai-test`) and Redis index, and refuse to
 run unless the database name contains `test`, because the suite wipes data
 between cases.
 
