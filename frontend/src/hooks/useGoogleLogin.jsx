@@ -43,12 +43,49 @@ export const useGoogleLogin = () => {
       import("../../firebase"),
     ]);
 
-    const result = await signInWithPopup(auth, googleProvider);
+    let result;
+    try {
+      result = await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      // Dismissals are handled by the caller as a non-error, so they must pass
+      // through untouched rather than being rewritten into a message.
+      if (isPopupDismissed(error)) throw error;
+
+      // The original is kept as the cause so the Firebase code survives in the
+      // console for debugging, while the user reads the plain explanation.
+      throw new Error(describeFirebaseError(error), { cause: error });
+    }
+
     const firebaseIdToken = await result.user.getIdToken();
 
     return loginWithGoogle(firebaseIdToken);
   };
 };
+
+/**
+ * Firebase reports setup mistakes accurately but not helpfully: the raw text is
+ * "Firebase: Error (auth/operation-not-allowed)", which says nothing about
+ * which switch was left off. Each of these is a specific thing to go and do,
+ * and every one of them is a console setting rather than a bug in this app.
+ */
+const FIREBASE_ERRORS = {
+  "auth/operation-not-allowed":
+    "Google sign-in is switched off for this Firebase project. Enable it under Authentication → Sign-in method → Google.",
+  "auth/unauthorized-domain":
+    "This site's domain is not allowed to sign in. Add it under Authentication → Settings → Authorized domains.",
+  "auth/configuration-not-found":
+    "This Firebase project has no sign-in configuration. Open Authentication in the Firebase console and enable the Google provider.",
+  "auth/invalid-api-key":
+    "The Firebase API key is wrong. Check VITE_FIREBASE_API_KEY against Project settings → Your apps.",
+  "auth/popup-blocked":
+    "Your browser blocked the sign-in popup. Allow popups for this site and try again.",
+  "auth/network-request-failed":
+    "Could not reach Firebase. Check your connection and try again.",
+};
+
+const describeFirebaseError = (error) =>
+  FIREBASE_ERRORS[error?.code] ??
+  `Google sign-in failed${error?.code ? ` (${error.code})` : ""}. Please try again.`;
 
 /**
  * Popup closures are a user action, not a failure — clicking away or pressing
