@@ -22,7 +22,7 @@ export const PLANS = {
 
     amount: 199,
 
-    credits: 500,
+    credits: 300,
 
     validity: 30
 

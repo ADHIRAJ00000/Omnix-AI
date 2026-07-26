@@ -45,6 +45,7 @@ vi.mock("../services/billing/utils/internalClient.js", () => ({
 const app = (await import("../services/billing/app.js")).default;
 const connectDB = (await import("../services/billing/config/db.js")).default;
 const Payment = (await import("../services/billing/models/payment.model.js")).default;
+const { PLANS } = await import("../services/billing/config/plans.js");
 
 useDatabase(connectDB, Payment);
 
@@ -74,10 +75,14 @@ describe("creating an order", () => {
 
     const payment = await Payment.findOne({ orderId: response.body.order.id });
 
-    // Read from PLANS, never from the request, so a client cannot ask for a
-    // cheap plan and be granted an expensive one.
-    expect(payment.amount).toBe(199);
-    expect(payment.credits).toBe(500);
+    /**
+     * Compared against PLANS rather than literals. What matters is that the
+     * server priced the order from its own config instead of trusting the
+     * request — repeating the numbers here only meant that changing a price
+     * broke the suite without anything actually being wrong.
+     */
+    expect(payment.amount).toBe(PLANS.starter.amount);
+    expect(payment.credits).toBe(PLANS.starter.credits);
     expect(payment.status).toBe("created");
   });
 
@@ -105,7 +110,10 @@ describe("verifying a payment", () => {
       .expect(200);
 
     expect(updatePlanCalls).toHaveLength(1);
-    expect(updatePlanCalls[0].body).toMatchObject({ credits: 500, plan: "starter" });
+    expect(updatePlanCalls[0].body).toMatchObject({
+      credits: PLANS.starter.credits,
+      plan: "starter",
+    });
     // The order id is the ledger's idempotency key.
     expect(updatePlanCalls[0].body.reference).toBe(orderId);
   });

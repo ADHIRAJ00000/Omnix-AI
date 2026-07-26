@@ -27,7 +27,7 @@ export default function BillingDrawer({
 
             currency: data.order.currency,
 
-            name: "CortexAI",
+            name: "Omnix-AI",
 
             description: `${data.plan.name} Plan`,
 
@@ -218,7 +218,7 @@ export default function BillingDrawer({
 
                 <p className="text-slate-400 text-sm mt-1">
 
-                  500 Credits
+                  300 Credits
 
                 </p>
 
