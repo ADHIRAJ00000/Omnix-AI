@@ -44,12 +44,18 @@ const PROVIDERS = {
   },
 };
 
+/**
+ * The coding agent's provider is configurable because it is the one worth
+ * changing: OpenRouter reaches stronger code models, but it is another account
+ * to hold, so the default is the provider that already powers chat. Set
+ * CODING_PROVIDER=openRouter once OPENROUTER_API_KEY exists.
+ */
 const AGENT_PROVIDERS = {
   chat: "groq",
   search: "groq",
   image: "groq",
   vision: "gemini",
-  coding: "openRouter",
+  coding: env.CODING_PROVIDER,
 };
 
 const DEFAULT_PROVIDER = "groq";

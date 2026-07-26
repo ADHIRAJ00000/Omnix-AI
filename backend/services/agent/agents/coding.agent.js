@@ -23,7 +23,7 @@ function cleanCode(code = "") {
   const llm =
     getModel("coding");
 
- const response = await llm.invoke(`You are CortexAI Coding Agent.
+ const response = await llm.invoke(`You are Omnix-AI Coding Agent.
 
 Your first task is to identify the user's intent.
 
@@ -242,7 +242,7 @@ ${state.prompt}`);
 
   const content =
     response.content?.trim();
-console.log(content)
+
   const files = [];
 
   const matches = [
@@ -251,54 +251,35 @@ console.log(content)
     )
   ];
 
-  if(matches.length){
+  matches.forEach(match => {
 
-    matches.forEach(match => {
+    const name = match[1].trim();
+    const fileContent = cleanCode(match[2]);
 
-      files.push({
-  name: match[1].trim(),
-  content: cleanCode(match[2]),
-});
-
-    });
-
-  }else{
-
-    let fileName = "main.js";
-
-    const prompt =
-      state.prompt.toLowerCase();
-
-    if(prompt.includes("html")){
-      fileName = "index.html";
-    }
-    else if(prompt.includes("css")){
-      fileName = "style.css";
-    }
-    else if(prompt.includes("python")){
-      fileName = "main.py";
-    }
-    else if(prompt.includes("java")){
-      fileName = "Main.java";
-    }
-    else if(prompt.includes("c++")){
-      fileName = "main.cpp";
+    // A heading with nothing under it would become an empty tab in the panel.
+    if (name && fileContent) {
+      files.push({ name, content: fileContent });
     }
 
-   
+  });
 
- 
-
+  /**
+   * No FILE: markers means the model answered rather than built something — a
+   * review, an explanation, a debugging walkthrough. Those are markdown, and
+   * belong in the reply itself rather than in a file the artifact panel would
+   * present as a project.
+   *
+   * Anything with no usable file is treated the same way. Returning an artifact
+   * holding zero files opened an empty panel with nothing in it, which read as
+   * the agent having silently failed.
+   */
+  if (!files.length) {
+    return {
+      ...state,
+      response: content,
+      artifacts: []
+    };
   }
-
-
-  if (!content.includes("FILE:")) {
-  return {
-    ...state,
-    response: content,
-    artifacts: []
-  };
-}
 
   return {
 
@@ -309,7 +290,7 @@ console.log(content)
 
     artifacts:[
       {
-        id:Date.now(),
+        id: String(Date.now()),
         type:"project",
         title:state.prompt,
         files,
