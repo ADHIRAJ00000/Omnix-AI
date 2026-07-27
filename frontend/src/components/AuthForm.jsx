@@ -50,7 +50,7 @@ function AuthForm({
                 placeholder={field.placeholder}
                 required
                 disabled={busy}
-                className="w-full bg-[#0d0f14] border border-white/[0.08] rounded-xl px-3.5 py-[11px] text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20 transition disabled:opacity-50"
+                className="w-full bg-[#0d0f14] border border-white/[0.08] rounded-xl px-3.5 py-[11px] text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition disabled:opacity-50"
               />
               {field.hint && <span className="text-[11px] text-slate-600">{field.hint}</span>}
             </label>
@@ -59,7 +59,7 @@ function AuthForm({
           <button
             type="submit"
             disabled={busy}
-            className="w-full mt-1 py-[11px] rounded-xl text-sm font-medium text-white bg-gradient-to-br from-indigo-500 to-violet-700 hover:from-indigo-400 hover:to-violet-600 border border-indigo-500/30 shadow-lg shadow-indigo-500/20 transition-all duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full mt-1 py-[11px] rounded-xl text-sm font-medium text-white bg-gradient-to-br from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/20 transition-all duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {busy ? "Please wait…" : submitLabel}
           </button>

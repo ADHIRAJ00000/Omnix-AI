@@ -99,7 +99,7 @@ function Register() {
       footer={
         <>
           Already have an account?{" "}
-          <Link to="/login" className="text-indigo-400 hover:text-indigo-300">
+          <Link to="/login" className="text-cyan-400 hover:text-cyan-300">
             Sign in
           </Link>
         </>

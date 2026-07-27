@@ -9,8 +9,8 @@ export default function Navbar() {
 
       {/* Left — chat title */}
       <div className="flex items-center gap-2.5">
-        <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-          <MessageSquare size={13} className="text-indigo-400" />
+        <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+          <MessageSquare size={13} className="text-cyan-400" />
         </div>
         <h2 className="text-[14px] font-semibold text-slate-100 tracking-tight">
           {selectedConversation?.title}

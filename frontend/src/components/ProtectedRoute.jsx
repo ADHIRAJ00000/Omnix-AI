@@ -20,7 +20,7 @@ function ProtectedRoute({ children }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0d0f14]">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-7 h-7 rounded-full border-2 border-indigo-500/30 border-t-indigo-400 animate-spin" />
+          <div className="w-7 h-7 rounded-full border-2 border-cyan-500/30 border-t-cyan-400 animate-spin" />
           <p className="text-[13px] text-slate-500">Loading…</p>
         </div>
       </div>

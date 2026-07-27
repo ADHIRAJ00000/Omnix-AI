@@ -23,7 +23,7 @@ function NeuralPulse() {
         />
       ))}
       <motion.span
-        className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-cyan-300 to-violet-400"
+        className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-cyan-300 to-sky-400"
         style={{ boxShadow: "0 0 14px rgba(125,211,252,0.55)" }}
         animate={{ scale: [1, 1.25, 1] }}
         transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}

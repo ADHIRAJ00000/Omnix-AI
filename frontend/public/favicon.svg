@@ -14,11 +14,11 @@
   <!-- Bezel: the ring is what makes the shape read as a dial rather than a dot -->
   <circle cx="32" cy="32" r="27" fill="none" stroke="#233040" stroke-width="4"/>
 
-  <!-- Face, in the violet the app already uses for its buttons and logo.
-       Violet-500 rather than the deeper violet-600 of the gradient's end: at
-       600 the dark hourglass falls to roughly 3:1 against it and starts to
-       muddy at small sizes, while this holds about 4.5:1. -->
-  <circle cx="32" cy="32" r="23" fill="#8b5cf6"/>
+  <!-- Face, in the cyan the app already uses for its buttons and logo.
+       Cyan-400 rather than the cyan-500 that starts the button gradient: both
+       clear the dark hourglass comfortably (about 10.5:1 here against 7.9:1),
+       and the brighter one keeps the silhouette crisp at 16px. -->
+  <circle cx="32" cy="32" r="23" fill="#22d3ee"/>
 
   <!-- Hourglass, with straight edges so it stays crisp when scaled down -->
   <path d="M19 13 H45 L36.5 32 L45 51 H19 L27.5 32 Z" fill="#0b1017"/>

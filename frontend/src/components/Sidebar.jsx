@@ -91,7 +91,7 @@ const [showBilling, setShowBilling] =useState(false);
               onClick={() => handleSelectConversation(chat)}
               title={chat.title}
               className={`flex items-center justify-center w-9 h-9 rounded-xl transition-colors duration-150 border-none cursor-pointer
-                ${isActive ? "bg-indigo-500/15 text-indigo-400" : "bg-transparent text-slate-500 hover:bg-white/[0.05] hover:text-slate-300"}`}
+                ${isActive ? "bg-cyan-500/15 text-cyan-400" : "bg-transparent text-slate-500 hover:bg-white/[0.05] hover:text-slate-300"}`}
             >
               <MessageSquare size={15} />
             </button>
@@ -103,7 +103,7 @@ const [showBilling, setShowBilling] =useState(false);
         {userData && (
           <div className="relative">
             {userData.avatar
-              ? <img src={userData.avatar} alt={userData.name} className="w-8 h-8 rounded-[8px] object-cover border-2 border-indigo-500/25" />
+              ? <img src={userData.avatar} alt={userData.name} className="w-8 h-8 rounded-[8px] object-cover border-2 border-cyan-500/25" />
               : <div className="w-8 h-8 rounded-[8px] bg-white/[0.06] flex items-center justify-center"><User size={14} className="text-slate-400" /></div>
             }
             <span className="absolute -bottom-px -right-px w-2 h-2 bg-green-500 rounded-full border-[1.5px] border-[#0d0f14] block" />
@@ -137,7 +137,7 @@ const [showBilling, setShowBilling] =useState(false);
 
         <span className="text-[16px] font-semibold text-slate-100 tracking-tight flex-1">Omnix-AI</span>
 
-        <span className="text-[10px] font-medium text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full tracking-wide">
+        <span className="text-[10px] font-medium text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-full tracking-wide">
          {userData?.plan ?? "pro"}
         </span>
 
@@ -153,7 +153,7 @@ const [showBilling, setShowBilling] =useState(false);
       <div className="px-4 pt-4 pb-1">
         <button
           onClick={handleCreateConversation}
-          className="w-full flex items-center justify-center gap-2 text-sm font-medium text-white bg-gradient-to-br from-indigo-500 to-violet-700 rounded-xl py-[10px] border-none cursor-pointer hover:opacity-90 transition-opacity duration-150"
+          className="w-full flex items-center justify-center gap-2 text-sm font-medium text-white bg-gradient-to-br from-cyan-500 to-blue-500 rounded-xl py-[10px] border-none cursor-pointer hover:opacity-90 transition-opacity duration-150"
         >
           <Plus size={15} />
           New Chat
@@ -191,12 +191,12 @@ const [showBilling, setShowBilling] =useState(false);
               onMouseEnter={() => setHovered(chat._id)}
               onMouseLeave={() => setHovered(null)}
               className={`flex items-center gap-2.5 cursor-pointer mb-0.5 px-3 py-2.5 rounded-[10px] border transition-colors duration-150
-                ${isActive ? "bg-indigo-500/10 border-indigo-500/[0.18]"
+                ${isActive ? "bg-cyan-500/10 border-cyan-500/[0.18]"
                 : isHov   ? "bg-white/[0.05] border-transparent"
                 :            "bg-transparent border-transparent"}`}
             >
               <div className={`flex items-center justify-center shrink-0 w-[28px] h-[28px] rounded-lg transition-colors duration-150
-                ${isActive ? "bg-indigo-500/15 text-indigo-400" : "bg-white/[0.05] text-slate-500"}`}>
+                ${isActive ? "bg-cyan-500/15 text-cyan-400" : "bg-white/[0.05] text-slate-500"}`}>
                 <MessageSquare size={13} />
               </div>
               <p className={`text-[13px] font-medium truncate ${isActive ? "text-slate-100" : "text-slate-300"}`}>
@@ -224,7 +224,7 @@ const [showBilling, setShowBilling] =useState(false);
     <img
       src={userData.avatar}
       alt={userData.name}
-      className="w-9 h-9 rounded-[10px] object-cover border-2 border-indigo-500/25"
+      className="w-9 h-9 rounded-[10px] object-cover border-2 border-cyan-500/25"
       onError={() => setImageError(true)}
     />
   )

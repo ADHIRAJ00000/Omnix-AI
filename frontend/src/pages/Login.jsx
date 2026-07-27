@@ -86,7 +86,7 @@ function Login() {
       footer={
         <>
           New here?{" "}
-          <Link to="/register" className="text-indigo-400 hover:text-indigo-300">
+          <Link to="/register" className="text-cyan-400 hover:text-cyan-300">
             Create an account
           </Link>
         </>
