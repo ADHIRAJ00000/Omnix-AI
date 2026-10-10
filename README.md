@@ -1,119 +1,86 @@
 # Omnix-AI
 
-A multi-agent AI platform built as microservices. A supervisor graph routes each
-request to a specialist agent — chat, web search, code generation, PDF and
-slide generation, vision, and retrieval over uploaded documents — with credits
-metered per run and billing behind Razorpay.
+Omnix-AI is a multi-agent AI platform built as a set of small Node.js services. A supervisor graph (LangGraph) looks at each incoming request and hands it to the right agent: plain chat, web search, code generation, PDF and slide generation, image/vision, or Q&A over documents the user uploaded. Every run costs credits, and top-ups go through Razorpay.
 
-> **Live demo:** **https://cortex-ai-tau-seven.vercel.app**
->
-> Hosted entirely on free tiers, so the first request after an idle period wakes
-> the backend and can take up to a minute. Later requests are fast.
-
----
+I built this to learn how a real multi-service backend fits together: auth, queues of state, payments, and an LLM layer on top, instead of one big Express app.
 
 ## Architecture
 
 ```
    Browser
-      │
-      ▼
- ┌──────────┐   Vercel (static)
- │  React   │
- └────┬─────┘
-      │ HTTPS, Bearer access token
-      ▼
- ┌──────────────────────────────────────────┐
- │  Gateway  :8000                          │  the only public entry
- │  verifies JWT · rate limits · routes     │
- └───┬────────┬─────────┬─────────┬─────────┘
-     │        │         │         │
-     ▼        ▼         ▼         ▼
-  ┌──────┐ ┌──────┐ ┌───────┐ ┌─────────┐
-  │ Auth │ │ Chat │ │ Agent │ │ Billing │
-  │ 8001 │ │ 8002 │ │ 8003  │ │  8004   │
-  └───┬──┘ └───┬──┘ └───┬───┘ └────┬────┘
-      │        │        │          │
-      ▼        ▼        ▼          ▼
-   MongoDB · Redis · Qdrant · Gemini/Groq
+      |
+      v
+ +----------+
+ |  React   |   (Vite SPA)
+ +----+-----+
+      | HTTPS + Bearer access token
+      v
+ +------------------------------------------+
+ |  Gateway :8000                           |  only public entry point
+ |  verifies JWT, rate limits, routes       |
+ +---+--------+---------+---------+---------+
+     |        |         |         |
+     v        v         v         v
+  +------+ +------+ +-------+ +---------+
+  | Auth | | Chat | | Agent | | Billing |
+  | 8001 | | 8002 | | 8003  | |  8004   |
+  +---+--+ +---+--+ +---+---+ +----+----+
+      |        |        |          |
+      v        v        v          v
+   MongoDB / Redis / Qdrant / Gemini + Groq
 ```
 
-Services never call each other's databases. Every internal call is signed with a
-shared secret, so a service reachable at its own public URL still refuses
-anything that did not come through the gateway.
-
-| Service | Port | Responsibility |
+| Service | Port | What it does |
 |---|---|---|
-| `gateway` | 8000 | Single public entry. Verifies access tokens, rate limits, routes, injects request ids. |
-| `auth` | 8001 | Registration, login, token rotation, profile, credit ledger. |
-| `chat` | 8002 | Conversations and messages, with ownership checks. |
-| `agent` | 8003 | LangGraph supervisor and all specialist agents. |
-| `billing` | 8004 | Plans, Razorpay orders, payment verification. |
+| gateway | 8000 | Public entry. Checks access tokens, rate limits, proxies to services, adds a request id. |
+| auth | 8001 | Register, login, token rotation, profile, credit ledger. |
+| chat | 8002 | Conversations and messages, with ownership checks. |
+| agent | 8003 | The LangGraph supervisor and all the agents. |
+| billing | 8004 | Plans, Razorpay orders, payment verification. |
 
-### Design decisions worth knowing
+Services never touch each other's databases. Internal calls are signed with a shared secret, so even if a service has its own public URL it rejects anything that didn't come through the gateway.
 
-**Two-token auth with reuse detection.** A 15-minute JWT access token is verified
-locally by the gateway, so authenticating a request costs no database lookup. The
-refresh token is opaque, stored hashed in Redis, and rotated on every use.
-Retired tokens are kept and marked used — presenting one again means two copies
-exist, so the whole token family is revoked and both parties must sign in again.
+## Some design choices
 
-**Credits are an append-only ledger.** `user.credits` is a cached balance for the
-hot path; every movement is also written as a ledger entry that is never edited.
-The entries sum to the balance, and a reconciliation check proves it. A failed
-run refunds by run id, reversing *every* charge that run made — a search request
-pays for the search agent and then the chat agent, so refunding only the last
-would leave the user short.
+**Auth.** Access tokens are short-lived (15 min) JWTs, so the gateway can verify them locally without a DB hit. Refresh tokens are opaque, stored hashed in Redis and rotated on every use. Old tokens are kept and marked as used; if one shows up again, that means two copies exist, so the whole token family gets revoked and the user has to log in again.
 
-**Idempotency everywhere money moves.** Charges, refunds and payment
-verification are keyed so retries, duplicate webhooks and replayed Razorpay
-responses apply exactly once.
+**Credits.** `user.credits` is just a cached balance for fast reads. The real source of truth is an append-only ledger where entries are never edited, and a reconcile check confirms they add up to the balance. If a run fails, it is refunded by run id and every charge from that run is reversed. This matters because one search request pays for the search agent and then the chat agent, so refunding only the last charge would shortchange the user.
 
-**Generated files live in MongoDB, behind signed links.** PDFs, decks and images
-are stored as bytes and served through URLs carrying an expiring HMAC
-signature — the same idea as an S3 presigned URL, without object storage. The
-signature does the authorising because these links are opened by the browser
-itself, from a markdown link or an `<img>` tag, neither of which sends an
-Authorization header. Documents outlive their links so an expired link can say
-so instead of reporting the file as missing, and a TTL index clears them out so
-the free database tier cannot silently fill up.
+**Idempotency.** Charges, refunds and payment verification are all keyed, so retries, duplicate webhooks and replayed Razorpay callbacks only take effect once.
 
----
+**Generated files.** PDFs, slide decks and images are stored as bytes in MongoDB and served through expiring HMAC-signed URLs (same idea as S3 presigned links, minus the object storage). Signed URLs are needed because the browser opens these from a markdown link or an `<img>` tag, and neither sends an Authorization header. Documents stay after their link expires so the user sees "link expired" instead of "not found", and a TTL index cleans them up so the free DB tier doesn't fill up.
 
 ## Tech stack
 
-Node 24 · Express 5 · MongoDB (Mongoose) · Redis · Qdrant · LangGraph ·
-Gemini / Groq · React 19 · Vite · Redux Toolkit · Tailwind · Docker · Vitest
-
----
+Node 24, Express 5, MongoDB (Mongoose), Redis, Qdrant, LangGraph, Gemini / Groq, React 19, Vite, Redux Toolkit, Tailwind, Docker, Vitest
 
 ## Running locally
 
-**Requirements:** Node 24+, Docker.
+You need Node 24+ and Docker.
 
 ```bash
 git clone <your-repo-url>
-cd cortex-ai/backend
+cd omnix-ai/backend
 
-# MongoDB and Redis, with healthchecks
-docker-compose up -d          # or: docker compose up -d
+# starts MongoDB and Redis
+docker compose up -d
 
-# Every service reads its own .env
+# each service has its own .env
 for d in gateway services/auth services/chat services/agent services/billing; do
   cp $d/.env.example $d/.env
 done
 ```
 
-Now generate two secrets and put the **same value** in every `.env` that asks
-for them:
+Generate two secrets and paste the same value everywhere they are needed:
 
 ```bash
-openssl rand -hex 32   # -> INTERNAL_API_KEY  (all five services)
-openssl rand -hex 32   # -> JWT_ACCESS_SECRET (gateway and auth only)
+openssl rand -hex 32   # INTERNAL_API_KEY  (all five services)
+openssl rand -hex 32   # JWT_ACCESS_SECRET (gateway and auth)
 ```
 
-Set `MONGODB_URL=mongodb://localhost:27017/cortex-ai` in auth, chat, agent and
-billing. Then start each service in its own terminal:
+In auth, chat, agent and billing, set `MONGODB_URL=mongodb://localhost:27017/omnix-ai`.
+
+Then run each service in its own terminal:
 
 ```bash
 npm run dev:gateway
@@ -127,41 +94,28 @@ And the frontend:
 
 ```bash
 cd ../frontend
-cp .env.example .env      # VITE_SERVER_URL should be http://localhost:8000
+cp .env.example .env     # VITE_SERVER_URL=http://localhost:8000
 npm install
 npm run dev
 ```
 
-Open http://localhost:5173 and register an account. **You can sign up and chat
-with no API keys at all** — the app runs, but any agent that needs a provider
-will tell you which key is missing rather than failing obscurely.
+Open http://localhost:5173 and create an account. Sign up and basic navigation work without any API keys. An agent that needs a provider key will tell you which one is missing instead of failing silently.
 
-### Which keys unlock what
+### API keys
 
-| Key | Needed for | Free? |
+| Key | Used for | Free tier |
 |---|---|---|
-| `GROQ_API_KEY` | Chat, search and image agents — the key that makes basic chat work | Yes — [console.groq.com](https://console.groq.com/keys) |
-| `GOOGLE_API_KEY` | Vision agent and RAG embeddings | Yes — [aistudio.google.com](https://aistudio.google.com/apikey) |
-| `OPENROUTER_API_KEY` | Coding agent | Yes — [openrouter.ai](https://openrouter.ai/keys) |
-| `TAVILY_API_KEY` | Search agent | Yes, 1000/month |
-| `QDRANT_URL` / `QDRANT_API_KEY` | PDF RAG agent | Yes, 1GB — [cloud.qdrant.io](https://cloud.qdrant.io) |
+| `GROQ_API_KEY` | Chat, search and image agents (needed for basic chat) | Yes, console.groq.com |
+| `GOOGLE_API_KEY` | Vision agent and RAG embeddings | Yes, aistudio.google.com |
+| `OPENROUTER_API_KEY` | Coding agent | Yes, openrouter.ai |
+| `TAVILY_API_KEY` | Search agent | Yes, 1000 requests/month |
+| `QDRANT_URL`, `QDRANT_API_KEY` | PDF RAG agent | Yes, 1GB on cloud.qdrant.io |
 | `RAZORPAY_*` | Billing | Test mode is free |
-| `VITE_FIREBASE_*` + `FIREBASE_SERVICE_ACCOUNT` | Google sign-in (optional) | Yes |
+| `VITE_FIREBASE_*`, `FIREBASE_SERVICE_ACCOUNT` | Google sign-in (optional) | Yes |
 
-Google sign-in needs both halves. The frontend takes four public values —
-`VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`
-and `VITE_FIREBASE_APP_ID` — from Firebase console → Project settings → General
-→ Your apps. The auth service takes `FIREBASE_SERVICE_ACCOUNT`, the whole
-service-account JSON from the Service accounts tab, which verifies the ID tokens
-those produce and is a genuine secret.
+Google sign-in needs both sides configured. On the frontend: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID` and `VITE_FIREBASE_APP_ID` (Firebase console, Project settings, Your apps). On the auth service: `FIREBASE_SERVICE_ACCOUNT`, the full service-account JSON, which is a real secret. Also add your deployed domain under Authentication, Settings, Authorized domains, otherwise the popup fails with `auth/unauthorized-domain`.
 
-Add your deployed origin under Authentication → Settings → Authorized domains,
-or the popup opens and dies with `auth/unauthorized-domain`. Firebase is only
-the identity provider here: it proves who the user is, then the auth service
-issues its own tokens, so Google and password users share one session
-mechanism.
-
----
+Firebase is only used to prove identity. After that the auth service issues its own tokens, so Google and email/password users share the same session logic.
 
 ## Tests
 
@@ -170,97 +124,64 @@ cd backend
 npm test
 ```
 
-66 tests covering credit accounting, session handling and reuse detection,
-conversation access control, payment replay, and one real run of the agent graph
-with the model mocked.
+There are 66 tests covering credit accounting, session handling and token reuse detection, conversation access control, payment replay, and one end-to-end run of the agent graph with the model mocked.
 
-Tests use their own database (`omnix-ai-test`) and Redis index, and refuse to
-run unless the database name contains `test`, because the suite wipes data
-between cases.
-
----
+Tests use a separate database (`omnix-ai-test`) and Redis index. The suite wipes data between cases, so it refuses to run unless the database name contains `test`.
 
 ## Deployment
 
-Backend on **Render**, frontend on **Vercel**, databases on free managed tiers.
-Everything below stays within free plans.
+I deployed the backend on Render, the frontend on Vercel, and used free managed databases. Everything fits in free plans.
 
-### 1. Managed data stores
+**1. Data stores**
 
-| What | Where | Plan |
-|---|---|---|
-| MongoDB | [MongoDB Atlas](https://cloud.mongodb.com) | M0, free forever |
-| Redis | [Upstash](https://upstash.com) | Free, no card |
-| Qdrant | [Qdrant Cloud](https://cloud.qdrant.io) | 1GB, free |
+- MongoDB: Atlas M0 (free). Allow access from `0.0.0.0/0`, since Render's free plan has no fixed egress IPs.
+- Redis: Upstash free tier.
+- Qdrant: Qdrant Cloud free 1GB cluster.
 
-On Atlas, allow access from anywhere (`0.0.0.0/0`) — Render does not publish
-fixed egress IPs on the free plan.
+**2. Backend**
 
-### 2. Backend
+Push to GitHub, then in Render go to New, Blueprint and point it at `backend/render.yaml`. It creates all five services. Then fill in the env vars Render flags as required:
 
-Push to GitHub, then in Render choose **New → Blueprint** and point it at
-`backend/render.yaml`. It creates all five services.
+- `INTERNAL_API_KEY`: same value on all five services
+- `JWT_ACCESS_SECRET`: same value on gateway and auth
+- `MONGODB_URL`, `REDIS_URL`: from Atlas and Upstash
+- Gateway: `AUTH_SERVICE`, `CHAT_SERVICE`, `AGENT_SERVICE`, `BILLING_SERVICE` (the other services' Render URLs) and `CORS_ORIGINS` (your Vercel URL)
+- Agent: `CHAT_SERVICE`, `AUTH_SERVICE`, `GATEWAY_URL`
+- Billing: `AUTH_SERVICE`
+- Provider keys on agent, Razorpay keys on billing
 
-Then fill in the environment variables Render marks as required:
+Copy the service URLs from the Render dashboard instead of guessing them. `.onrender.com` names are globally unique, so if a name is taken Render adds a random suffix (for example `omnix-auth` can become `omnix-auth-6bbt`). Using the wrong name sends internal traffic to someone else's deployment.
 
-- `INTERNAL_API_KEY` — the same value in **all five** services
-- `JWT_ACCESS_SECRET` — the same value in gateway **and** auth
-- `MONGODB_URL`, `REDIS_URL` — from Atlas and Upstash
-- On the gateway, set `AUTH_SERVICE`, `CHAT_SERVICE`, `AGENT_SERVICE` and
-  `BILLING_SERVICE` to the other services' Render URLs (available after their
-  first deploy), and `CORS_ORIGINS` to your Vercel URL
-- On the agent, set `CHAT_SERVICE`, `AUTH_SERVICE` and `GATEWAY_URL`; on
-  billing, `AUTH_SERVICE`
-- Provider keys on the agent service, Razorpay keys on billing
+**3. Frontend**
 
-Read those URLs from the dashboard rather than assuming them. `.onrender.com`
-subdomains are globally unique, so a name already in use gets a random suffix —
-`cortex-auth` may well arrive as `cortex-auth-6bbt`, and pointing a service at
-the name you expected sends internal traffic to a stranger's deployment.
+Import the repo in Vercel, set the root directory to `frontend`, and set `VITE_SERVER_URL` to the gateway's Render URL. `vercel.json` already handles SPA routing and asset caching.
 
-### 3. Frontend
+Finally, set `CORS_ORIGINS` on the gateway and `FRONTEND_URL` on auth to your Vercel URL with no trailing slash, and redeploy both. Origins are compared literally, and `FRONTEND_URL` also scopes the refresh cookie. If it is wrong, login seems to work but the session is lost on the next page load.
 
-Import the repo in Vercel, set the root directory to `frontend`, and set
-`VITE_SERVER_URL` to your gateway's Render URL. `vercel.json` already handles
-SPA routing and asset caching.
+### Free tier notes
 
-Finally set `CORS_ORIGINS` on the gateway and `FRONTEND_URL` on auth to the
-Vercel URL, with no trailing slash, and redeploy both. Origins are compared
-literally, and `FRONTEND_URL` scopes the refresh cookie — get it wrong and
-sign-in appears to work but the session is lost on the next page load.
+Free Render services sleep after 15 minutes of inactivity and take around 50 seconds to wake up. Since the gateway calls other services, the first request after idle can wake several of them one after another. Free instance hours are also shared across all services, so keeping all five running 24/7 isn't possible.
 
-### Free-tier reality
+Options if the cold start bothers you:
 
-Free Render services sleep after 15 minutes idle and take roughly 50 seconds to
-wake. Because the gateway calls other services, a first visit after a nap can
-wake several in sequence.
-
-The free plan also grants a fixed pool of instance-hours shared across all free
-services, so keeping five awake around the clock is not possible — sleeping is
-what keeps this inside the allowance. Practical options:
-
-- **Accept it** and tell visitors the first load is slow. Costs nothing.
-- **Keep only the gateway and auth warm** with a free uptime pinger, so signing
-  in is fast and only the agent wakes on demand.
-- **Run it on one always-free VM** (Oracle Cloud gives 4 ARM cores free
-  permanently) with `docker-compose`, which removes cold starts entirely.
-
----
+- Live with it.
+- Keep only the gateway and auth warm with a free uptime pinger.
+- Run everything on one always-free VM (Oracle Cloud's ARM instance works) using docker-compose, which removes cold starts completely.
 
 ## Repository layout
 
 ```
 backend/
-├── gateway/            public entry point
-├── services/
-│   ├── auth/           accounts, tokens, credit ledger
-│   ├── chat/           conversations and messages
-│   ├── agent/          LangGraph supervisor + agents
-│   └── billing/        plans and payments
-├── shared/             errors, logging, validation, config
-├── tests/              vitest suites
-├── docker-compose.yml  mongo + redis for local work
-└── render.yaml         one-click backend deploy
+  gateway/            public entry point
+  services/
+    auth/             accounts, tokens, credit ledger
+    chat/             conversations and messages
+    agent/            LangGraph supervisor and agents
+    billing/          plans and payments
+  shared/             errors, logging, validation, config
+  tests/              vitest suites
+  docker-compose.yml  mongo + redis for local dev
+  render.yaml         backend deploy blueprint
 
-frontend/               React + Vite SPA
+frontend/             React + Vite SPA
 ```
