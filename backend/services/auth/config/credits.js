@@ -13,7 +13,7 @@ export const AGENT_COSTS = {
   ppt: 10,
   image: 10,
   vision: 10,
-  pdfRag: 10,
+  pdf_rag: 10,
 };
 
 export const DEFAULT_AGENT_COST = 1;

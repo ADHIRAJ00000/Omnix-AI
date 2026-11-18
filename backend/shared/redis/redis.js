@@ -30,8 +30,19 @@ redis.on("connect", () => {
  * Without a listener, ioredis emits 'error' as an unhandled event, which takes
  * the whole process down on a blip instead of letting the client reconnect.
  */
+const host = (() => {
+  try {
+    const u = new URL(process.env.REDIS_URL);
+    // Hide credentials: a connection failure is not the place to log the password.
+    return u.hostname + ":" + u.port;
+  } catch {
+    return process.env.REDIS_URL;
+  }
+})();
+
 redis.on("error", (error) => {
-  console.error("Redis error:", error.message);
+  const detail = error?.message || error?.code || String(error);
+  console.error(`Redis error (${host}): ${detail || "connection failed - is it running and reachable?"}`);
 });
 
 export default redis;

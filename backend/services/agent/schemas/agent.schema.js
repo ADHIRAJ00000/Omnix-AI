@@ -18,7 +18,7 @@ export const chatSchema = {
     conversationId: objectId,
 
     agent: z
-      .enum(["chat", "search", "coding", "pdf", "ppt", "image", "vision", "pdfRag"])
+      .enum(["chat", "search", "coding", "pdf", "ppt", "image", "vision", "pdf_rag"])
       .optional(),
   }),
 };

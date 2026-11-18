@@ -17,7 +17,7 @@ const LIMITS = {
   image: 3,
   search: 5,
   vision: 5,
-  pdfRag: 5,
+  pdf_rag: 5,
 };
 
 const WINDOW_SECONDS = 60;
